@@ -1,4 +1,4 @@
-crewai==0.51.0
+crewai
 langchain-openrouter
 litellm
 streamlit
