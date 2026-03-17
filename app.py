@@ -1,3 +1,9 @@
+import os
+import streamlit as st
+# Set API key from Streamlit secrets
+os.environ["OPENROUTER_API_KEY"] = st.secrets["OPENROUTER_API_KEY"]
+
+
 import streamlit as st
 from agents import create_crew
 
