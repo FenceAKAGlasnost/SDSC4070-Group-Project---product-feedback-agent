@@ -1,7 +1,7 @@
 import os
 import streamlit as st
 # Set API key from Streamlit secrets
-os.environ["OPENROUTER_API_KEY"] = st.secrets["OPENROUTER_API_KEY"]
+os.environ["OPENROUTER_API_KEY"] = st.secrets["OPENROUTER_API_KEY"] #et
 
 
 import streamlit as st
