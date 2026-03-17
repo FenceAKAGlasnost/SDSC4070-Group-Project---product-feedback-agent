@@ -1,1 +1,1 @@
-pip install crewai langchain-openrouter litellm streamlit python-dotenv pandas
+!pip install crewai langchain-openrouter litellm streamlit python-dotenv pandas
