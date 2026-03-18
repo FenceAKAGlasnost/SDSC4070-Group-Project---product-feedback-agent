@@ -1,98 +1,116 @@
+import streamlit as st
 import os
 from dotenv import load_dotenv
-from crewai import Agent, Task, Crew
-from langchain_community.chat_models import ChatLiteLLM
+from langchain_openrouter import ChatOpenRouter
 
 load_dotenv()
 
-# LiteLLM configuration for OpenRouter
-llm = ChatLiteLLM(
-    model="openrouter/meta-llama/llama-3.3-70b-instruct",
-    temperature=0.6,
-    max_tokens=1500,
-    api_key=os.getenv("OPENROUTER_API_KEY"),
-    api_base="https://openrouter.ai/api/v1"
+# ====================== CONFIG ======================
+os.environ["OPENROUTER_API_KEY"] = st.secrets["OPENROUTER_API_KEY"]
+
+st.set_page_config(page_title="Product Feedback Agent", page_icon="📊", layout="centered")
+
+st.title("📊 Product Feedback Agent System")
+st.markdown("**Helping companies improve their products using Large Language Models**")
+
+# ====================== SIDEBAR ======================
+st.sidebar.title("⚙️ Analysis Settings")
+agent_mode = st.sidebar.selectbox(
+    "Choose Analysis Mode",
+    [
+        "1. Full 5-Agent Analysis (Recommended)",
+        "2. Quick Summary Agent",
+        "3. Theme & Sentiment Deep Dive",
+        "4. Recommendation-Focused Agent",
+        "5. Professional Executive Report"
+    ]
 )
 
-# ==================== 5 AGENTS ====================
+temperature = st.sidebar.slider("Temperature (Creativity)", 0.0, 1.0, 0.65)
 
-cleaner = Agent(
-    role="Data Cleaning Specialist",
-    goal="Clean and organize raw user comments into usable format",
-    backstory="You are meticulous and remove duplicates, spam, and very short irrelevant comments.",
-    llm=llm,
-    verbose=True
+# ====================== MAIN INTERFACE ======================
+st.subheader("Paste user reviews / comments")
+
+# File uploader
+uploaded_file = st.file_uploader("Upload a .txt or .csv file", type=["txt", "csv"])
+
+# Text input area
+comments = st.text_area(
+    "Enter customer comments here (one per line or paragraph):",
+    height=220,
+    placeholder="The app keeps crashing on Android...\nBeautiful design but too expensive..."
 )
 
-analyzer = Agent(
-    role="Feedback Analyst",
-    goal="Identify sentiment and extract main themes from user comments",
-    backstory="You are excellent at finding patterns in customer feedback.",
-    llm=llm,
-    verbose=True
-)
+# Sample buttons for easy demo
+st.caption("Quick Demo Samples:")
+col1, col2, col3 = st.columns(3)
+if col1.button("📱 Phone App"):
+    comments = "Battery drains way too fast. The UI is beautiful but confusing. App crashes randomly. Best phone I've ever had except for the battery."
+if col2.button("🍔 Food Delivery"):
+    comments = "Food always arrives cold. Delivery is late most of the time. Great variety but prices are too high. Driver was very rude."
+if col3.button("💻 Laptop"):
+    comments = "Screen is very bright. Keyboard feels cheap. Fast performance. Best laptop in this price range. Overheats during gaming."
 
-summarizer = Agent(
-    role="Professional Summarizer",
-    goal="Create balanced and concise summaries of the feedback",
-    backstory="You write in a professional, positive, and constructive tone.",
-    llm=llm,
-    verbose=True
-)
+# ====================== ANALYZE BUTTON ======================
+if st.button("🚀 Analyze Feedback", type="primary", use_container_width=True):
+    if not comments and not uploaded_file:
+        st.error("⚠️ Please enter comments or upload a file.")
+    else:
+        # Combine uploaded file with manual input
+        if uploaded_file:
+            file_content = uploaded_file.getvalue().decode("utf-8")
+            comments = comments + "\n\n" + file_content if comments else file_content
 
-recommender = Agent(
-    role="Product Improvement Expert",
-    goal="Turn insights into specific, actionable recommendations for Product v2",
-    backstory="You give practical, realistic, and prioritized suggestions.",
-    llm=llm,
-    verbose=True
-)
+        with st.spinner(f"🔍 Running {agent_mode}..."):
+            llm = ChatOpenRouter(
+                model="meta-llama/llama-3.3-70b-instruct",
+                temperature=temperature,
+                max_tokens=2000
+            )
 
-reporter = Agent(
-    role="Report Writer",
-    goal="Generate a clean, professional final report",
-    backstory="You create well-structured, positive, and easy-to-read reports.",
-    llm=llm,
-    verbose=True
-)
+            # ==================== IMPROVED PROMPT (Few-Shot) ====================
+            prompt = f"""You are an expert Product Feedback Analysis Agent. 
+Your analysis is always professional, balanced, constructive, and actionable.
 
-# ==================== TASKS & CREW ====================
+Here are high-quality examples of excellent analysis:
 
-def create_crew(user_comments: str):
-    task1 = Task(
-        description=f"Clean these raw user comments and remove noise:\n\n{user_comments}",
-        agent=cleaner,
-        expected_output="Cleaned list of meaningful feedback"
-    )
+**Example 1:**
+User Comments: "App crashes all the time. Battery lasts only 4 hours. Design is beautiful."
+Analysis:
+1. Executive Summary: Users are impressed by the design but frustrated with stability and battery performance.
+2. Key Themes: Stability/Crashing (Strongly Negative), Battery Life (Negative), Design (Positive)
+3. Detailed Insights: Crashing appears to be the most frequent complaint.
+4. Recommendations for v2: 
+   - Priority 1: Fix memory leaks causing crashes
+   - Priority 2: Optimize battery consumption
 
-    task2 = Task(
-        description="Analyze sentiment and extract the top themes with approximate frequency.",
-        agent=analyzer,
-        expected_output="List of main themes with sentiment and counts"
-    )
+**Example 2:**
+User Comments: "Too expensive. Delivery slow. Food cold."
+Analysis:
+1. Executive Summary: Pricing and delivery reliability are major pain points affecting satisfaction.
+2. Key Themes: Price (Negative), Delivery Speed (Negative), Food Quality (Negative)
+3. Recommendations: Introduce value bundles and improve delivery partner standards.
 
-    task3 = Task(
-        description="Write a balanced, professional summary of the feedback.",
-        agent=summarizer,
-        expected_output="Concise summary with key insights"
-    )
+Now analyze the following real customer comments:
 
-    task4 = Task(
-        description="Provide 6-8 specific, prioritized, and actionable recommendations for Product v2.",
-        agent=recommender,
-        expected_output="Numbered list of clear recommendations"
-    )
+User Comments:
+{comments}
 
-    task5 = Task(
-        description="Combine everything into a professional final report in markdown format.",
-        agent=reporter,
-        expected_output="Well-formatted markdown report"
-    )
+Mode: {agent_mode}
 
-    crew = Crew(
-        agents=[cleaner, analyzer, summarizer, recommender, reporter],
-        tasks=[task1, task2, task3, task4, task5],
-        verbose=True
-    )
+Please structure your response **exactly** in this format:
 
-    return crew
+1. **Executive Summary**
+2. **Key Themes** (list 5–8 themes with sentiment)
+3. **Detailed Insights**
+4. **Prioritized Recommendations for Product v2** (numbered, with clear reasoning)
+
+Use professional yet friendly language. Be specific and constructive."""
+
+            response = llm.invoke(prompt)
+            
+            st.success("✅ Analysis Complete!")
+            st.markdown("### 📋 Final Report")
+            st.markdown(response.content)
+
+st.caption("SDSC4070 Large Language Models • Product Feedback Agent System")
