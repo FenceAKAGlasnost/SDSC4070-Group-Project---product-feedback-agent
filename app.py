@@ -5,6 +5,7 @@ from langchain_openrouter import ChatOpenRouter
 import plotly.express as px
 import pandas as pd
 import json
+import re
 from datetime import datetime
 
 load_dotenv()
@@ -164,15 +165,53 @@ Be accurate and balanced."""
 
             response = llm.invoke(prompt)
             
+            # ------------- IMPROVED JSON PARSING -------------
             try:
-                import re
                 content = response.content
+                
+                # First, try to find complete JSON between curly braces
                 json_match = re.search(r'\{.*\}', content, re.DOTALL)
                 if json_match:
-                    result = json.loads(json_match.group())
+                    potential_json = json_match.group()
+                    
+                    # Try to parse it
+                    try:
+                        result = json.loads(potential_json)
+                    except json.JSONDecodeError:
+                        # If it fails, try to fix truncated JSON
+                        st.warning("JSON was truncated, attempting to fix...")
+                        
+                        # Count opening and closing braces
+                        open_braces = potential_json.count('{')
+                        close_braces = potential_json.count('}')
+                        
+                        if open_braces > close_braces:
+                            # Add missing closing braces
+                            potential_json += '}' * (open_braces - close_braces)
+                        
+                        # Try parsing again
+                        try:
+                            result = json.loads(potential_json)
+                        except:
+                            # If still fails, create a simple result
+                            result = {
+                                "executive_summary": "Analysis completed but response was malformed",
+                                "key_themes": ["Error parsing response"],
+                                "sentiment": {"positive": 0.33, "negative": 0.33, "neutral": 0.34},
+                                "insights": "The AI response was truncated. Please try again.",
+                                "recommendations": ["Try with shorter input", "Run analysis again"]
+                            }
                 else:
-                    result = json.loads(content)
+                    # No JSON found, create default
+                    result = {
+                        "executive_summary": "Could not parse AI response",
+                        "key_themes": ["Error"],
+                        "sentiment": {"positive": 0.33, "negative": 0.33, "neutral": 0.34},
+                        "insights": "The AI did not return valid JSON",
+                        "recommendations": ["Please try again"]
+                    }
                 
+                # Save to history (even if we used default values)
                 save_to_history(final_comments, result)
                 
                 st.success("Analysis Complete!")
@@ -213,7 +252,15 @@ Be accurate and balanced."""
                     st.write(f"{i}. {rec}")
 
             except Exception as e:
-                st.error(f"Error parsing response")
-                st.markdown(response.content)
+                st.error(f"Error analyzing feedback: {str(e)}")
+                # Create a fallback result
+                result = {
+                    "executive_summary": "Analysis encountered an error",
+                    "key_themes": ["Error"],
+                    "sentiment": {"positive": 0.33, "negative": 0.33, "neutral": 0.34},
+                    "insights": f"Error: {str(e)}",
+                    "recommendations": ["Please try again with shorter input"]
+                }
+                save_to_history(final_comments, result)
 
 st.caption("Powered by OpenRouter • Analysis history is saved during your session")
