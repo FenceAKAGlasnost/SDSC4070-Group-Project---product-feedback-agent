@@ -1,5 +1,6 @@
-crewai==0.70.0
-litellm==1.52.0
+crewai
+litellm
 streamlit
 python-dotenv
 pandas
+matplotlib
