@@ -1,6 +1,3 @@
-crewai
-litellm
 streamlit
 python-dotenv
-pandas
-matplotlib
+langchain-openrouter
