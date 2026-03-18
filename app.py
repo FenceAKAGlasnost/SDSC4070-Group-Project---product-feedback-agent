@@ -57,6 +57,10 @@ def export_history_csv():
 
 # ==================== SIDEBAR ====================
 with st.sidebar:
+    # 👇 REFRESH BUTTON ADDED AT THE TOP
+    if st.button("🔄 Refresh Page", use_container_width=True):
+        st.rerun()
+    
     st.header("Analysis Settings")
     agent_mode = st.selectbox(
         "Analysis Mode",
@@ -80,6 +84,7 @@ with st.sidebar:
                 neg = entry['sentiment'].get('negative', 0)
                 st.write(f"**Sentiment:** Positive: {pos:.0%}, Negative: {neg:.0%}")
         
+        # Changed to 3 columns to accommodate refresh button (but refresh is above now)
         col1, col2 = st.columns(2)
         with col1:
             df = export_history_csv()
