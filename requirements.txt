@@ -1,5 +1,4 @@
 crewai
-langchain-openrouter
 litellm
 streamlit
 python-dotenv
