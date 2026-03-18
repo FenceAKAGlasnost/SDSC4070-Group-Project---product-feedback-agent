@@ -11,7 +11,7 @@ st.set_page_config(page_title="Product Feedback Agent", page_icon="📊", layout
 st.title("📊 Product Feedback Agent System")
 st.markdown("**Helping companies improve their products using Large Language Models**")
 
-# Sidebar
+# ====================== SIDEBAR ======================
 st.sidebar.title("⚙️ Analysis Settings")
 agent_mode = st.sidebar.selectbox(
     "Choose Analysis Mode",
@@ -26,37 +26,49 @@ agent_mode = st.sidebar.selectbox(
 
 temperature = st.sidebar.slider("Temperature (Creativity)", 0.0, 1.0, 0.65)
 
-# Main content
+# ====================== MAIN AREA ======================
 st.subheader("Paste user reviews / comments")
 
+# File uploader
 uploaded_file = st.file_uploader("Upload a .txt or .csv file", type=["txt", "csv"])
 
-# Text area
+# Main text area
 comments = st.text_area(
     "Enter customer comments here (one per line or paragraph):",
     height=200,
     placeholder="Paste your reviews here..."
 )
 
-# Sample Buttons
-st.caption("Quick Demo Samples:")
-col1, col2, col3 = st.columns(3)
+# ====================== SAMPLE DROPDOWN ======================
+st.subheader("📋 Quick Demo Samples")
 
-if col1.button("📱 Phone App", use_container_width=True):
-    st.session_state.comments = "The app keeps crashing on Android. Battery drains way too fast. Beautiful design but too expensive. UI is confusing for new users. Love the new design!"
-    st.rerun()
+sample_option = st.selectbox(
+    "Choose a sample to load:",
+    [
+        "Select a sample...",
+        "📱 Phone App Feedback",
+        "🍔 Food Delivery Feedback",
+        "💻 Laptop Feedback",
+        "🎮 Gaming Console Feedback"
+    ]
+)
 
-if col2.button("🍔 Food Delivery", use_container_width=True):
-    st.session_state.comments = "Food always arrives cold. Delivery is late most of the time. Great variety but prices are too high. Driver was rude."
-    st.rerun()
+# Sample comments dictionary
+samples = {
+    "📱 Phone App Feedback": "The app keeps crashing on Android. Battery drains way too fast. Beautiful design but too expensive. UI is confusing for new users. Love the new design but it lags sometimes.",
+    
+    "🍔 Food Delivery Feedback": "Food always arrives cold. Delivery is late most of the time. Great variety but prices are too high. Driver was rude. App is easy to use but tracking is inaccurate.",
+    
+    "💻 Laptop Feedback": "Screen is very bright. Keyboard feels cheap. Fast performance. Best laptop in this price range but it overheats during gaming. Battery life is disappointing.",
+    
+    "🎮 Gaming Console Feedback": "Graphics are amazing. Controller feels great. Loading times are too long. Overheats after 2 hours of play. Best console I've owned so far."
+}
 
-if col3.button("💻 Laptop", use_container_width=True):
-    st.session_state.comments = "Screen is very bright. Keyboard feels cheap. Fast performance. Best laptop in this price range but it overheats during gaming."
-    st.rerun()
-
-# Fill the text area from session state if button was clicked
-if "comments" in st.session_state and st.session_state.comments:
-    comments = st.session_state.comments
+if sample_option != "Select a sample...":
+    st.text_area("Sample Comments (copy and paste into the box above):", 
+                 value=samples[sample_option], 
+                 height=120, 
+                 disabled=True)
 
 # ====================== ANALYZE BUTTON ======================
 if st.button("🚀 Analyze Feedback", type="primary", use_container_width=True):
@@ -94,7 +106,6 @@ Structure your response exactly as:
 Be constructive, specific, and professional."""
 
             response = llm.invoke(prompt)
-            
             st.success("✅ Analysis Complete!")
             st.markdown("### 📋 Final Report")
             st.markdown(response.content)
