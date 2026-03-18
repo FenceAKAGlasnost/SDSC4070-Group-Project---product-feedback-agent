@@ -1,20 +1,20 @@
 import streamlit as st
 import os
-import re
 from dotenv import load_dotenv
 from langchain_openrouter import ChatOpenRouter
 import plotly.express as px
 import pandas as pd
 import json
+import re
 from datetime import datetime
 
 load_dotenv()
 os.environ["OPENROUTER_API_KEY"] = st.secrets["OPENROUTER_API_KEY"]
 
-st.set_page_config(page_title="Product Feedback Agent", page_icon="📊", layout="centered")
+st.set_page_config(page_title="Product Feedback Agent", layout="centered")
 
-st.title("📊 Product Feedback Agent System")
-st.markdown("**Helping companies improve their products using Large Language Models**")
+st.title("Product Feedback Agent System")
+st.markdown("**AI-powered analysis of customer feedback**")
 
 # ==================== HISTORY FUNCTIONS ====================
 def save_to_history(comments, result):
@@ -26,9 +26,9 @@ def save_to_history(comments, result):
         'id': len(st.session_state.history) + 1,
         'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         'comments': comments[:100] + '...' if len(comments) > 100 else comments,
-        'result': result,
         'sentiment': result.get('sentiment', {}),
-        'themes': result.get('key_themes', [])[:3]
+        'themes': result.get('key_themes', [])[:3],
+        'summary': result.get('executive_summary', '')[:100] + '...' if result.get('executive_summary') else ''
     })
 
 def clear_history():
@@ -49,228 +49,222 @@ def export_history_csv():
             'Positive': entry['sentiment'].get('positive', 0),
             'Negative': entry['sentiment'].get('negative', 0),
             'Neutral': entry['sentiment'].get('neutral', 0),
-            'Themes': ', '.join(entry['themes'])
+            'Themes': ', '.join(entry['themes']),
+            'Summary': entry['summary']
         })
     
     return pd.DataFrame(data)
 
 # ==================== SIDEBAR ====================
-st.sidebar.title("⚙️ Analysis Settings")
-agent_mode = st.sidebar.selectbox(
-    "Choose Analysis Mode",
-    ["1. Full 5-Agent Analysis", "2. Quick Summary Agent", 
-     "3. Theme & Sentiment Deep Dive", "4. Recommendation-Focused Agent", 
-     "5. Professional Executive Report"]
-)
-temperature = st.sidebar.slider("Temperature (Creativity)", 0.0, 1.0, 0.65)
-
-# ==================== HISTORY SIDEBAR ====================
-st.sidebar.markdown("---")
-st.sidebar.title("📋 Analysis History")
-
-if 'history' in st.session_state and st.session_state.history:
-    st.sidebar.markdown(f"**Total:** {len(st.session_state.history)}")
+with st.sidebar:
+    if st.button("Refresh Page", use_container_width=True):
+        st.rerun()
     
-    for entry in st.session_state.history[-3:]:
-        with st.sidebar.expander(f"#{entry['id']} - {entry['timestamp'][:10]}"):
-            st.write(f"**Comments:** {entry['comments']}")
-            st.write(f"**Themes:** {', '.join(entry['themes'])}")
+    st.header("Analysis Settings")
+    agent_mode = st.selectbox(
+        "Analysis Mode",
+        ["Full 5-Agent Analysis", "Quick Summary", 
+         "Theme & Sentiment Deep Dive", "Recommendation-Focused", 
+         "Executive Report"]
+    )
+    temperature = st.slider("Temperature (Creativity)", 0.0, 1.0, 0.65)
     
-    col1, col2 = st.sidebar.columns(2)
-    with col1:
-        df = export_history_csv()
-        if df is not None:
-            csv = df.to_csv(index=False)
-            st.sidebar.download_button("📥 CSV", csv, "feedback_history.csv", "text/csv")
-    with col2:
-        if st.button("🗑️ Clear"):
-            clear_history()
-            st.rerun()
-else:
-    st.sidebar.info("No history yet")
+    st.divider()
+    st.subheader("Analysis History")
+    
+    if 'history' in st.session_state and st.session_state.history:
+        st.caption(f"Total: {len(st.session_state.history)} analyses")
+        
+        for entry in st.session_state.history[-3:]:
+            with st.expander(f"#{entry['id']} - {entry['timestamp'][:10]}"):
+                st.write(f"**Comments:** {entry['comments']}")
+                st.write(f"**Themes:** {', '.join(entry['themes'])}")
+                pos = entry['sentiment'].get('positive', 0)
+                neg = entry['sentiment'].get('negative', 0)
+                st.write(f"**Sentiment:** Positive: {pos:.0%}, Negative: {neg:.0%}")
+        
+        # Changed to 3 columns to accommodate refresh button (but refresh is above now)
+        col1, col2 = st.columns(2)
+        with col1:
+            df = export_history_csv()
+            if df is not None:
+                csv = df.to_csv(index=False)
+                st.download_button(
+                    label="Export CSV",
+                    data=csv,
+                    file_name=f"feedback_history_{datetime.now().strftime('%Y%m%d')}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+        with col2:
+            if st.button("Clear History", use_container_width=True):
+                clear_history()
+                st.rerun()
+    else:
+        st.info("No history yet. Run an analysis to see results here.")
 
 # ==================== MAIN AREA ====================
-st.subheader("Paste user reviews / comments")
+st.subheader("Input Feedback")
 
-uploaded_file = st.file_uploader("Upload .txt or .csv", type=["txt", "csv"])
+uploaded_file = st.file_uploader("Upload file (.txt or .csv)", type=["txt", "csv"])
 
 comments = st.text_area(
-    "Enter comments:",
+    "Customer comments:",
     height=180,
-    placeholder="Paste reviews here..."
+    placeholder="Paste customer feedback here..."
 )
 
-# Sample Dropdown
-st.subheader("📋 Quick Samples")
+# Sample Data
+st.subheader("Sample Data")
 sample_option = st.selectbox(
     "Load sample:",
-    ["Select...", "📱 Phone App", "🍔 Food Delivery", "💻 Laptop", "🎮 Gaming"]
+    ["Select sample...", "Phone App Feedback", "Food Delivery Feedback", 
+     "Laptop Feedback", "Gaming Console Feedback"]
 )
 
 samples = {
-    "📱 Phone App": "App crashes. Battery drains fast. Beautiful design but expensive.",
-    "🍔 Food Delivery": "Food cold. Delivery late. Great variety.",
-    "💻 Laptop": "Screen bright. Keyboard cheap. Fast performance. Overheats.",
-    "🎮 Gaming": "Graphics amazing. Controller great. Long loading times."
+    "Phone App Feedback": "The app keeps crashing on Android. Battery drains way too fast. Beautiful design but too expensive. UI is confusing.",
+    "Food Delivery Feedback": "Food always arrives cold. Delivery is late. Great variety but prices too high. Driver was rude.",
+    "Laptop Feedback": "Screen is bright. Keyboard feels cheap. Fast performance. Overheats during gaming. Best laptop in this price.",
+    "Gaming Console Feedback": "Graphics amazing. Controller feels great. Loading times too long. Overheats after 2 hours."
 }
 
-if sample_option != "Select...":
-    st.code(samples[sample_option])
+if sample_option != "Select sample...":
+    st.code(samples[sample_option], language="text")
 
 # ====================== ANALYZE BUTTON ======================
-if st.button("🚀 Analyze", type="primary", use_container_width=True):
+analyze_clicked = st.button("Analyze Feedback", type="primary", use_container_width=True)
+
+if analyze_clicked:
     final_comments = comments
     if uploaded_file:
-        final_comments += "\n\n" + uploaded_file.getvalue().decode("utf-8")
+        final_comments = final_comments + "\n\n" + uploaded_file.getvalue().decode("utf-8")
 
     if not final_comments or len(final_comments.strip()) < 30:
-        st.error("Please enter comments.")
+        st.error("Please enter comments or upload a file.")
     else:
-        with st.spinner("Analyzing..."):
+        with st.spinner("Analyzing feedback..."):
             llm = ChatOpenRouter(
                 model="meta-llama/llama-3.3-70b-instruct",
                 temperature=temperature,
                 max_tokens=2500
             )
 
-            # ==================== CHAIN-OF-THOUGHT FEW-SHOT PROMPT ====================
-            prompt = f"""You are a product feedback analyst. Always think step by step before answering. For each analysis, include a "chain_of_thought" field that lists your reasoning steps. Then provide the analysis in the requested JSON format.
-
-Examples of good analysis with chain-of-thought:
-
-Example 1:
-Comments: "The app crashes every time I open it. Battery drains fast. Love the design though."
-Output:
-{{
-  "chain_of_thought": [
-    "I identify three main points: crashes (negative), battery drain (negative), design appreciation (positive).",
-    "Count: 2 negative, 1 positive → overall negative with some positive.",
-    "Key themes: app stability, battery performance, design quality.",
-    "Insights: technical issues overshadow design, so users are frustrated despite liking the look.",
-    "Recommendations: fix crashes first, then battery, and consider highlighting design in marketing."
-  ],
-  "executive_summary": "Users appreciate the design but are experiencing critical technical issues.",
-  "key_themes": ["app stability", "battery performance", "design quality"],
-  "sentiment": {{"positive": 0.25, "negative": 0.65, "neutral": 0.10}},
-  "insights": "While the visual design receives praise, stability problems are the main source of frustration.",
-  "recommendations": [
-    "Fix crash bugs as top priority",
-    "Optimize battery usage in background processes",
-    "Consider adding offline mode"
-  ]
-}}
-
-Example 2:
-Comments: "Great variety of food. Delivery is always late though. Prices are reasonable."
-Output:
-{{
-  "chain_of_thought": [
-    "Comments mention variety (positive), delivery lateness (negative), reasonable prices (positive).",
-    "Sentiment: 2 positive, 1 negative → mixed but slightly positive.",
-    "Themes: food variety, delivery speed, pricing.",
-    "Insight: core product is good, logistics are the pain point.",
-    "Recommendations: improve delivery logistics, communicate better ETAs."
-  ],
-  "executive_summary": "Customers like the food variety and pricing but are dissatisfied with delivery times.",
-  "key_themes": ["food variety", "delivery speed", "pricing"],
-  "sentiment": {{"positive": 0.50, "negative": 0.40, "neutral": 0.10}},
-  "insights": "Product quality is good, but logistics issues are hurting the overall experience.",
-  "recommendations": [
-    "Optimize delivery routes",
-    "Add more delivery partners",
-    "Set realistic delivery time expectations"
-  ]
-}}
-
-Example 3:
-Comments: "Battery life is amazing. Screen is bright. Best phone I've ever owned."
-Output:
-{{
-  "chain_of_thought": [
-    "All comments are positive: battery, screen, overall satisfaction.",
-    "Sentiment is overwhelmingly positive.",
-    "Themes: battery life, display quality, overall satisfaction.",
-    "Insight: battery and display are key strengths.",
-    "Recommendations: market these features, maintain quality."
-  ],
-  "executive_summary": "Customers are extremely satisfied with the product performance and features.",
-  "key_themes": ["battery life", "display quality", "overall satisfaction"],
-  "sentiment": {{"positive": 0.90, "negative": 0.05, "neutral": 0.05}},
-  "insights": "Battery and display are key differentiators driving positive sentiment.",
-  "recommendations": [
-    "Highlight battery life in marketing",
-    "Maintain current quality standards",
-    "Gather more feedback for next iteration"
-  ]
-}}
-
-Now analyze these comments. First reason step by step, then output the JSON (including the chain_of_thought field).
+            prompt = f"""Analyze the following customer comments and return a JSON object only.
+Do not add any explanation outside the JSON.
 
 Comments:
 {final_comments}
 
-Output JSON with the following structure:
+Return JSON in this exact format:
 {{
-  "chain_of_thought": ["step1", "step2", ...],
   "executive_summary": "string",
-  "key_themes": ["theme1", "theme2", "theme3"],
+  "key_themes": ["theme1", "theme2", ...],
   "sentiment": {{"positive": 0.XX, "negative": 0.XX, "neutral": 0.XX}},
   "insights": "string",
-  "recommendations": ["rec1", "rec2", "rec3"]
+  "recommendations": ["rec1", "rec2", ...]
 }}
 
-Return ONLY valid JSON, no other text."""
+Be accurate and balanced."""
 
             response = llm.invoke(prompt)
             
+            # ------------- IMPROVED JSON PARSING -------------
             try:
-                # Extract JSON from response (handles extra text)
                 content = response.content
+                
+                # First, try to find complete JSON between curly braces
                 json_match = re.search(r'\{.*\}', content, re.DOTALL)
                 if json_match:
-                    result = json.loads(json_match.group())
+                    potential_json = json_match.group()
+                    
+                    # Try to parse it
+                    try:
+                        result = json.loads(potential_json)
+                    except json.JSONDecodeError:
+                        # If it fails, try to fix truncated JSON
+                        st.warning("JSON was truncated, attempting to fix...")
+                        
+                        # Count opening and closing braces
+                        open_braces = potential_json.count('{')
+                        close_braces = potential_json.count('}')
+                        
+                        if open_braces > close_braces:
+                            # Add missing closing braces
+                            potential_json += '}' * (open_braces - close_braces)
+                        
+                        # Try parsing again
+                        try:
+                            result = json.loads(potential_json)
+                        except:
+                            # If still fails, create a simple result
+                            result = {
+                                "executive_summary": "Analysis completed but response was malformed",
+                                "key_themes": ["Error parsing response"],
+                                "sentiment": {"positive": 0.33, "negative": 0.33, "neutral": 0.34},
+                                "insights": "The AI response was truncated. Please try again.",
+                                "recommendations": ["Try with shorter input", "Run analysis again"]
+                            }
                 else:
-                    result = json.loads(content)
+                    # No JSON found, create default
+                    result = {
+                        "executive_summary": "Could not parse AI response",
+                        "key_themes": ["Error"],
+                        "sentiment": {"positive": 0.33, "negative": 0.33, "neutral": 0.34},
+                        "insights": "The AI did not return valid JSON",
+                        "recommendations": ["Please try again"]
+                    }
                 
-                # Save to history
+                # Save to history (even if we used default values)
                 save_to_history(final_comments, result)
                 
-                st.success("✅ Done!")
+                st.success("Analysis Complete!")
                 
-                # Display reasoning (optional)
-                with st.expander("Show reasoning steps"):
-                    for step in result.get('chain_of_thought', []):
-                        st.write(f"• {step}")
+                # Display Report
+                st.subheader("Analysis Report")
+                st.write(f"**Executive Summary**")
+                st.write(result.get('executive_summary', ''))
                 
-                # Display report
-                st.markdown("### 📋 Report")
-                st.markdown(f"**Summary:** {result.get('executive_summary', '')}")
-                st.markdown("**Themes:**")
+                st.write("**Key Themes**")
                 st.write(result.get('key_themes', []))
                 
+                st.write("**Insights**")
+                st.write(result.get('insights', ''))
+
                 # Charts
                 col1, col2 = st.columns(2)
+                
                 with col1:
-                    sentiment = result.get('sentiment', {"positive":0.4, "negative":0.4, "neutral":0.2})
-                    fig = px.pie(names=list(sentiment.keys()), values=list(sentiment.values()), title="Sentiment")
-                    st.plotly_chart(fig, use_container_width=True)
-                
+                    sentiment_data = result.get('sentiment', {"positive": 0.4, "negative": 0.45, "neutral": 0.15})
+                    fig_pie = px.pie(
+                        names=list(sentiment_data.keys()),
+                        values=list(sentiment_data.values()),
+                        title="Sentiment Distribution"
+                    )
+                    st.plotly_chart(fig_pie, use_container_width=True)
+
                 with col2:
-                    themes = result.get('key_themes', ["Theme1", "Theme2", "Theme3"])
+                    themes = result.get('key_themes', ["Theme1", "Theme2", "Theme3"])[:4]
                     if themes:
-                        df = pd.DataFrame({
-                            "Theme": themes[:3], 
-                            "Frequency": [45, 30, 25][:len(themes[:3])]
-                        })
-                        fig = px.bar(df, x="Theme", y="Frequency", title="Top Themes")
-                        st.plotly_chart(fig, use_container_width=True)
-                
-                st.markdown("**Recommendations:**")
+                        values = [45, 30, 25, 20][:len(themes)]
+                        df = pd.DataFrame({"Theme": themes, "Frequency": values})
+                        fig_bar = px.bar(df, x="Theme", y="Frequency", title="Top Themes")
+                        st.plotly_chart(fig_bar, use_container_width=True)
+
+                st.write("**Recommendations**")
                 for i, rec in enumerate(result.get('recommendations', []), 1):
                     st.write(f"{i}. {rec}")
-                    
-            except Exception as e:
-                st.error(f"Could not parse structured output. Showing raw response:")
-                st.markdown(response.content)
 
-st.caption("Product Feedback Agent with History & CSV Export")
+            except Exception as e:
+                st.error(f"Error analyzing feedback: {str(e)}")
+                # Create a fallback result
+                result = {
+                    "executive_summary": "Analysis encountered an error",
+                    "key_themes": ["Error"],
+                    "sentiment": {"positive": 0.33, "negative": 0.33, "neutral": 0.34},
+                    "insights": f"Error: {str(e)}",
+                    "recommendations": ["Please try again with shorter input"]
+                }
+                save_to_history(final_comments, result)
+
+st.caption("Powered by OpenRouter • Analysis history is saved during your session")
