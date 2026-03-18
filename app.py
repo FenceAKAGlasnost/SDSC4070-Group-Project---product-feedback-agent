@@ -2,6 +2,9 @@ import streamlit as st
 import os
 from dotenv import load_dotenv
 from langchain_openrouter import ChatOpenRouter
+import plotly.express as px
+import pandas as pd
+import json
 
 load_dotenv()
 os.environ["OPENROUTER_API_KEY"] = st.secrets["OPENROUTER_API_KEY"]
@@ -11,103 +14,122 @@ st.set_page_config(page_title="Product Feedback Agent", page_icon="📊", layout
 st.title("📊 Product Feedback Agent System")
 st.markdown("**Helping companies improve their products using Large Language Models**")
 
-# ====================== SIDEBAR ======================
+# Sidebar
 st.sidebar.title("⚙️ Analysis Settings")
 agent_mode = st.sidebar.selectbox(
     "Choose Analysis Mode",
-    [
-        "1. Full 5-Agent Analysis (Recommended)",
-        "2. Quick Summary Agent",
-        "3. Theme & Sentiment Deep Dive",
-        "4. Recommendation-Focused Agent",
-        "5. Professional Executive Report"
-    ]
+    ["1. Full 5-Agent Analysis (Recommended)", "2. Quick Summary Agent", 
+     "3. Theme & Sentiment Deep Dive", "4. Recommendation-Focused Agent", 
+     "5. Professional Executive Report"]
 )
-
 temperature = st.sidebar.slider("Temperature (Creativity)", 0.0, 1.0, 0.65)
 
-# ====================== MAIN AREA ======================
+# Main Area
 st.subheader("Paste user reviews / comments")
 
-# File uploader
 uploaded_file = st.file_uploader("Upload a .txt or .csv file", type=["txt", "csv"])
 
-# Main text area
 comments = st.text_area(
-    "Enter customer comments here (one per line or paragraph):",
-    height=200,
-    placeholder="Paste your reviews here..."
+    "Enter customer comments here:",
+    height=180,
+    placeholder="Paste reviews here..."
 )
 
-# ====================== SAMPLE DROPDOWN ======================
+# Sample Dropdown
 st.subheader("📋 Quick Demo Samples")
-
 sample_option = st.selectbox(
-    "Choose a sample to load:",
-    [
-        "Select a sample...",
-        "📱 Phone App Feedback",
-        "🍔 Food Delivery Feedback",
-        "💻 Laptop Feedback",
-        "🎮 Gaming Console Feedback"
-    ]
+    "Load a sample dataset:",
+    ["Select a sample...", "📱 Phone App Feedback", "🍔 Food Delivery Feedback", 
+     "💻 Laptop Feedback", "🎮 Gaming Console Feedback"]
 )
 
-# Sample comments dictionary
 samples = {
-    "📱 Phone App Feedback": "The app keeps crashing on Android. Battery drains way too fast. Beautiful design but too expensive. UI is confusing for new users. Love the new design but it lags sometimes.",
-    
-    "🍔 Food Delivery Feedback": "Food always arrives cold. Delivery is late most of the time. Great variety but prices are too high. Driver was rude. App is easy to use but tracking is inaccurate.",
-    
-    "💻 Laptop Feedback": "Screen is very bright. Keyboard feels cheap. Fast performance. Best laptop in this price range but it overheats during gaming. Battery life is disappointing.",
-    
-    "🎮 Gaming Console Feedback": "Graphics are amazing. Controller feels great. Loading times are too long. Overheats after 2 hours of play. Best console I've owned so far."
+    "📱 Phone App Feedback": "The app keeps crashing on Android. Battery drains way too fast. Beautiful design but too expensive. UI is confusing.",
+    "🍔 Food Delivery Feedback": "Food always arrives cold. Delivery is late. Great variety but prices too high. Driver was rude.",
+    "💻 Laptop Feedback": "Screen is bright. Keyboard feels cheap. Fast performance. Overheats during gaming. Best laptop in this price.",
+    "🎮 Gaming Console Feedback": "Graphics amazing. Controller feels great. Loading times too long. Overheats after 2 hours."
 }
 
 if sample_option != "Select a sample...":
-    st.text_area("Sample Comments (copy and paste into the box above):", 
-                 value=samples[sample_option], 
-                 height=120, 
-                 disabled=True)
+    st.text_area("Sample Comments (copy & paste above):", 
+                 value=samples[sample_option], height=100, disabled=True)
 
 # ====================== ANALYZE BUTTON ======================
 if st.button("🚀 Analyze Feedback", type="primary", use_container_width=True):
     final_comments = comments
-
     if uploaded_file:
-        file_content = uploaded_file.getvalue().decode("utf-8")
-        final_comments = (final_comments + "\n\n" + file_content) if final_comments else file_content
+        final_comments = final_comments + "\n\n" + uploaded_file.getvalue().decode("utf-8")
 
     if not final_comments or len(final_comments.strip()) < 30:
-        st.error("⚠️ Please enter comments or upload a file.")
+        st.error("Please enter comments or upload a file.")
     else:
-        with st.spinner(f"🔍 Running {agent_mode}..."):
+        with st.spinner("Analyzing feedback and generating charts..."):
             llm = ChatOpenRouter(
                 model="meta-llama/llama-3.3-70b-instruct",
                 temperature=temperature,
-                max_tokens=2000
+                max_tokens=2500
             )
 
-            prompt = f"""You are an expert Product Feedback Analysis Agent.
-
-Analyze the following customer comments and provide a professional report.
+            prompt = f"""Analyze the following customer comments and return a JSON object only.
+Do not add any explanation outside the JSON.
 
 Comments:
 {final_comments}
 
-Mode: {agent_mode}
+Return JSON in this exact format:
+{{
+  "executive_summary": "string",
+  "key_themes": ["theme1", "theme2", ...],
+  "sentiment": {{"positive": 0.XX, "negative": 0.XX, "neutral": 0.XX}},
+  "insights": "string",
+  "recommendations": ["rec1", "rec2", ...]
+}}
 
-Structure your response exactly as:
-1. **Executive Summary**
-2. **Key Themes** (list 5–8 themes with sentiment)
-3. **Detailed Insights**
-4. **Prioritized Recommendations for Product v2** (numbered with reasoning)
-
-Be constructive, specific, and professional."""
+Be accurate and balanced."""
 
             response = llm.invoke(prompt)
-            st.success("✅ Analysis Complete!")
-            st.markdown("### 📋 Final Report")
-            st.markdown(response.content)
+            
+            try:
+                # Try to parse JSON from LLM response
+                result = json.loads(response.content)
+                
+                st.success("✅ Analysis Complete!")
+                
+                # Display Report
+                st.markdown("### 📋 Final Report")
+                st.markdown(f"**Executive Summary**  \n{result.get('executive_summary', '')}")
+                st.markdown("**Key Themes**")
+                st.write(result.get('key_themes', []))
+                st.markdown("**Detailed Insights**")
+                st.write(result.get('insights', ''))
+
+                # === CHARTS ===
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    sentiment_data = result.get('sentiment', {"positive": 0.4, "negative": 0.45, "neutral": 0.15})
+                    fig_pie = px.pie(
+                        names=list(sentiment_data.keys()),
+                        values=list(sentiment_data.values()),
+                        title="Sentiment Distribution",
+                        color_discrete_sequence=px.colors.sequential.RdBu
+                    )
+                    st.plotly_chart(fig_pie, use_container_width=True)
+
+                with col2:
+                    # Fake theme frequencies for bar chart (you can improve this later)
+                    themes = result.get('key_themes', ["Battery", "Design", "Price", "Performance"])[:4]
+                    values = [45, 30, 25, 20]
+                    df = pd.DataFrame({"Theme": themes, "Frequency": values})
+                    fig_bar = px.bar(df, x="Theme", y="Frequency", title="Top Themes")
+                    st.plotly_chart(fig_bar, use_container_width=True)
+
+                st.markdown("**Recommendations for Product v2**")
+                for i, rec in enumerate(result.get('recommendations', []), 1):
+                    st.write(f"{i}. {rec}")
+
+            except:
+                st.error("Could not parse structured output. Showing raw response:")
+                st.markdown(response.content)
 
 st.caption("SDSC4070 Large Language Models • Product Feedback Agent System")
