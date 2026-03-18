@@ -134,11 +134,11 @@ with st.sidebar:
                 # Show sentiment emoji
                 pos = entry['sentiment'].get('positive', 0)
                 if pos > 0.6:
-                    st.markdown("🟢")  # Positive
+                    st.markdown("+")  # Positive
                 elif pos > 0.3:
-                    st.markdown("🟡")  # Mixed
+                    st.markdown("-")  # Mixed
                 else:
-                    st.markdown("🔴")  # Negative
+                    st.markdown("+/-")  # Negative
         
         # Export and Clear buttons
         col1, col2 = st.columns(2)
