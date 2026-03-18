@@ -1,18 +1,17 @@
 import os
 from dotenv import load_dotenv
 from crewai import Agent, Task, Crew
-from langchain_openrouter import ChatOpenRouter
-import litellm
+from langchain_community.chat_models import ChatLiteLLM
 
 load_dotenv()
 
-# === Correct LLM Setup for OpenRouter with CrewAI ===
-llm = ChatOpenRouter(
-    model="openrouter/meta-llama/llama-3.3-70b-instruct",   # Important: prefix with "openrouter/"
+# LiteLLM configuration for OpenRouter
+llm = ChatLiteLLM(
+    model="openrouter/meta-llama/llama-3.3-70b-instruct",
     temperature=0.6,
     max_tokens=1500,
     api_key=os.getenv("OPENROUTER_API_KEY"),
-    base_url="https://openrouter.ai/api/v1"
+    api_base="https://openrouter.ai/api/v1"
 )
 
 # ==================== 5 AGENTS ====================
@@ -28,7 +27,7 @@ cleaner = Agent(
 analyzer = Agent(
     role="Feedback Analyst",
     goal="Identify sentiment and extract main themes from user comments",
-    backstory="You are excellent at finding patterns in customer feedback. You group comments into clear themes.",
+    backstory="You are excellent at finding patterns in customer feedback.",
     llm=llm,
     verbose=True
 )
@@ -44,7 +43,7 @@ summarizer = Agent(
 recommender = Agent(
     role="Product Improvement Expert",
     goal="Turn insights into specific, actionable recommendations for Product v2",
-    backstory="You give practical, realistic, and prioritized suggestions that help improve the product.",
+    backstory="You give practical, realistic, and prioritized suggestions.",
     llm=llm,
     verbose=True
 )
