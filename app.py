@@ -210,8 +210,6 @@ Be accurate and balanced."""
                 for i, rec in enumerate(result.get('recommendations', []), 1):
                     st.write(f"{i}. {rec}")
                     
-                # Refresh to show history
-                st.rerun()
 
             except Exception as e:
                 st.error(f"Could not parse structured output: {e}")
