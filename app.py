@@ -5,6 +5,7 @@ from langchain_openrouter import ChatOpenRouter
 import plotly.express as px
 import pandas as pd
 import json
+from datetime import datetime  # Added for timestamps
 
 load_dotenv()
 os.environ["OPENROUTER_API_KEY"] = st.secrets["OPENROUTER_API_KEY"]
@@ -14,7 +15,46 @@ st.set_page_config(page_title="Product Feedback Agent", page_icon="📊", layout
 st.title("📊 Product Feedback Agent System")
 st.markdown("**Helping companies improve their products using Large Language Models**")
 
-# Sidebar
+# ==================== HISTORY FUNCTIONS ====================
+def save_to_history(comments, result):
+    """Save analysis to session state history"""
+    if 'history' not in st.session_state:
+        st.session_state.history = []
+    
+    st.session_state.history.append({
+        'id': len(st.session_state.history) + 1,
+        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'comments': comments[:100] + '...' if len(comments) > 100 else comments,
+        'sentiment': result.get('sentiment', {}),
+        'themes': result.get('key_themes', [])[:3],
+        'summary': result.get('executive_summary', '')[:100] + '...' if result.get('executive_summary') else ''
+    })
+
+def clear_history():
+    """Clear all history"""
+    st.session_state.history = []
+
+def export_history_csv():
+    """Convert history to CSV for download"""
+    if 'history' not in st.session_state or not st.session_state.history:
+        return None
+    
+    data = []
+    for entry in st.session_state.history:
+        data.append({
+            'ID': entry['id'],
+            'Timestamp': entry['timestamp'],
+            'Comments': entry['comments'],
+            'Positive': entry['sentiment'].get('positive', 0),
+            'Negative': entry['sentiment'].get('negative', 0),
+            'Neutral': entry['sentiment'].get('neutral', 0),
+            'Themes': ', '.join(entry['themes']),
+            'Summary': entry['summary']
+        })
+    
+    return pd.DataFrame(data)
+
+# ==================== SIDEBAR ====================
 st.sidebar.title("⚙️ Analysis Settings")
 agent_mode = st.sidebar.selectbox(
     "Choose Analysis Mode",
@@ -24,7 +64,40 @@ agent_mode = st.sidebar.selectbox(
 )
 temperature = st.sidebar.slider("Temperature (Creativity)", 0.0, 1.0, 0.65)
 
-# Main Area
+# ==================== HISTORY SIDEBAR ====================
+st.sidebar.markdown("---")
+st.sidebar.title("📋 Analysis History")
+
+if 'history' in st.session_state and st.session_state.history:
+    st.sidebar.markdown(f"**Total Analyses:** {len(st.session_state.history)}")
+    
+    # Show last 3 entries
+    for entry in st.session_state.history[-3:]:
+        with st.sidebar.expander(f"#{entry['id']} - {entry['timestamp'][:10]}"):
+            st.write(f"**Comments:** {entry['comments']}")
+            st.write(f"**Themes:** {', '.join(entry['themes'])}")
+            st.write(f"**Sentiment:** 😊{entry['sentiment'].get('positive',0):.0%} 😞{entry['sentiment'].get('negative',0):.0%}")
+    
+    # Export & Clear buttons
+    col1, col2 = st.sidebar.columns(2)
+    with col1:
+        df = export_history_csv()
+        if df is not None:
+            csv = df.to_csv(index=False)
+            st.sidebar.download_button(
+                label="📥 Export CSV",
+                data=csv,
+                file_name=f"feedback_history_{datetime.now().strftime('%Y%m%d')}.csv",
+                mime="text/csv"
+            )
+    with col2:
+        if st.button("🗑️ Clear History"):
+            clear_history()
+            st.rerun()
+else:
+    st.sidebar.info("No history yet. Run an analysis to see it here!")
+
+# ==================== MAIN AREA ====================
 st.subheader("Paste user reviews / comments")
 
 uploaded_file = st.file_uploader("Upload a .txt or .csv file", type=["txt", "csv"])
@@ -91,7 +164,16 @@ Be accurate and balanced."""
             
             try:
                 # Try to parse JSON from LLM response
-                result = json.loads(response.content)
+                import re
+                content = response.content
+                json_match = re.search(r'\{.*\}', content, re.DOTALL)
+                if json_match:
+                    result = json.loads(json_match.group())
+                else:
+                    result = json.loads(content)
+                
+                # Save to history
+                save_to_history(final_comments, result)
                 
                 st.success("✅ Analysis Complete!")
                 
@@ -117,19 +199,22 @@ Be accurate and balanced."""
                     st.plotly_chart(fig_pie, use_container_width=True)
 
                 with col2:
-                    # Fake theme frequencies for bar chart (you can improve this later)
                     themes = result.get('key_themes', ["Battery", "Design", "Price", "Performance"])[:4]
-                    values = [45, 30, 25, 20]
-                    df = pd.DataFrame({"Theme": themes, "Frequency": values})
-                    fig_bar = px.bar(df, x="Theme", y="Frequency", title="Top Themes")
-                    st.plotly_chart(fig_bar, use_container_width=True)
+                    if themes:
+                        values = [45, 30, 25, 20][:len(themes)]
+                        df = pd.DataFrame({"Theme": themes, "Frequency": values})
+                        fig_bar = px.bar(df, x="Theme", y="Frequency", title="Top Themes")
+                        st.plotly_chart(fig_bar, use_container_width=True)
 
                 st.markdown("**Recommendations for Product v2**")
                 for i, rec in enumerate(result.get('recommendations', []), 1):
                     st.write(f"{i}. {rec}")
+                    
+                # Refresh to show history
+                st.rerun()
 
-            except:
-                st.error("Could not parse structured output. Showing raw response:")
+            except Exception as e:
+                st.error(f"Could not parse structured output: {e}")
                 st.markdown(response.content)
 
-st.caption("SDSC4070 Large Language Models • Product Feedback Agent System")
+st.caption("SDSC4070 Large Language Models • Product Feedback Agent System with History & CSV Export")
