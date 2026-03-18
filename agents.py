@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+import re  # Added re import at top
 from dotenv import load_dotenv
 from langchain_openrouter import ChatOpenRouter
 import plotly.express as px
@@ -148,48 +149,55 @@ Return JSON format:
 
             response = llm.invoke(prompt)
             
-    try:
-        # Extract JSON from response (handles extra text)
-        content = response.content
-        import re
-        # Find the first { and last } to capture JSON object
-        json_match = re.search(r'\{.*\}', content, re.DOTALL)
-        if json_match:
-            result = json.loads(json_match.group())
-        else:
-            # Fallback: try to parse whole content
-            result = json.loads(content)
-        
-        save_to_history(final_comments, result)
-        
-        st.success("✅ Done!")
-        
-        # Display (same as before)
-        st.markdown("### 📋 Report")
-        st.markdown(f"**Summary:** {result.get('executive_summary', '')}")
-        st.markdown("**Themes:**")
-        st.write(result.get('key_themes', []))
-        
-        # Charts
-        col1, col2 = st.columns(2)
-        with col1:
-            sentiment = result.get('sentiment', {"positive":0.4, "negative":0.4, "neutral":0.2})
-            fig = px.pie(names=list(sentiment.keys()), values=list(sentiment.values()), title="Sentiment")
-            st.plotly_chart(fig, use_container_width=True)
-        
-        with col2:
-            themes = result.get('key_themes', ["Theme1", "Theme2", "Theme3"])[:4]
-            values = [45, 30, 25]
-            df = pd.DataFrame({"Theme": themes[:3], "Frequency": values})
-            fig = px.bar(df, x="Theme", y="Frequency", title="Top Themes")
-            st.plotly_chart(fig, use_container_width=True)
-        
-        st.markdown("**Recommendations:**")
-        for i, rec in enumerate(result.get('recommendations', []), 1):
-            st.write(f"{i}. {rec}")
-    
-    except Exception as e:
-        st.error(f"Could not parse structured output. Showing raw response:")
-        st.markdown(response.content)
+            try:
+                # Extract JSON from response (handles extra text)
+                content = response.content
+                # Find the first { and last } to capture JSON object
+                json_match = re.search(r'\{.*\}', content, re.DOTALL)
+                if json_match:
+                    result = json.loads(json_match.group())
+                else:
+                    # Fallback: try to parse whole content
+                    result = json.loads(content)
+                
+                # Save to history
+                save_to_history(final_comments, result)
+                
+                st.success("✅ Done!")
+                
+                # Display
+                st.markdown("### 📋 Report")
+                st.markdown(f"**Summary:** {result.get('executive_summary', '')}")
+                st.markdown("**Themes:**")
+                st.write(result.get('key_themes', []))
+                
+                # Charts
+                col1, col2 = st.columns(2)
+                with col1:
+                    sentiment = result.get('sentiment', {"positive":0.4, "negative":0.4, "neutral":0.2})
+                    fig = px.pie(names=list(sentiment.keys()), values=list(sentiment.values()), title="Sentiment")
+                    st.plotly_chart(fig, use_container_width=True)
+                
+                with col2:
+                    themes = result.get('key_themes', ["Theme1", "Theme2", "Theme3"])
+                    if themes:
+                        # Use actual theme names with sample frequencies
+                        df = pd.DataFrame({
+                            "Theme": themes[:3], 
+                            "Frequency": [45, 30, 25][:len(themes[:3])]
+                        })
+                        fig = px.bar(df, x="Theme", y="Frequency", title="Top Themes")
+                        st.plotly_chart(fig, use_container_width=True)
+                
+                st.markdown("**Recommendations:**")
+                for i, rec in enumerate(result.get('recommendations', []), 1):
+                    st.write(f"{i}. {rec}")
+                    
+                # Force refresh to show history
+                st.rerun()
+                    
+            except Exception as e:
+                st.error(f"Could not parse structured output. Showing raw response:")
+                st.markdown(response.content)
 
 st.caption("Product Feedback Agent with History & CSV Export")
