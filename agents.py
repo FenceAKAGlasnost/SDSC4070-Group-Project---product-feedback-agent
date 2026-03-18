@@ -1,6 +1,6 @@
 import streamlit as st
 import os
-import re  # Added re import at top
+import re
 from dotenv import load_dotenv
 from langchain_openrouter import ChatOpenRouter
 import plotly.express as px
@@ -133,31 +133,80 @@ if st.button("🚀 Analyze", type="primary", use_container_width=True):
                 max_tokens=2500
             )
 
-            prompt = f"""Analyze these comments and return JSON only:
+            # ==================== FEW-SHOT PROMPT ====================
+            prompt = f"""You are a product feedback analyst. Analyze customer comments and return JSON.
 
+Examples of good analysis:
+
+Example 1:
+Comments: "The app crashes every time I open it. Battery drains fast. Love the design though."
+Output:
+{{
+  "executive_summary": "Users appreciate the design but are experiencing critical technical issues.",
+  "key_themes": ["app stability", "battery performance", "design quality"],
+  "sentiment": {{"positive": 0.25, "negative": 0.65, "neutral": 0.10}},
+  "insights": "While the visual design receives praise, stability problems are the main source of frustration.",
+  "recommendations": [
+    "Fix crash bugs as top priority",
+    "Optimize battery usage in background processes",
+    "Consider adding offline mode"
+  ]
+}}
+
+Example 2:
+Comments: "Great variety of food. Delivery is always late though. Prices are reasonable."
+Output:
+{{
+  "executive_summary": "Customers like the food variety and pricing but are dissatisfied with delivery times.",
+  "key_themes": ["food variety", "delivery speed", "pricing"],
+  "sentiment": {{"positive": 0.50, "negative": 0.40, "neutral": 0.10}},
+  "insights": "Product quality is good, but logistics issues are hurting the overall experience.",
+  "recommendations": [
+    "Optimize delivery routes",
+    "Add more delivery partners",
+    "Set realistic delivery time expectations"
+  ]
+}}
+
+Example 3:
+Comments: "Battery life is amazing. Screen is bright. Best phone I've ever owned."
+Output:
+{{
+  "executive_summary": "Customers are extremely satisfied with the product performance and features.",
+  "key_themes": ["battery life", "display quality", "overall satisfaction"],
+  "sentiment": {{"positive": 0.90, "negative": 0.05, "neutral": 0.05}},
+  "insights": "Battery and display are key differentiators driving positive sentiment.",
+  "recommendations": [
+    "Highlight battery life in marketing",
+    "Maintain current quality standards",
+    "Gather more feedback for next iteration"
+  ]
+}}
+
+Now analyze these comments:
 Comments:
 {final_comments}
 
-Return JSON format:
+Return JSON in this exact format:
 {{
   "executive_summary": "string",
-  "key_themes": ["theme1", "theme2"],
+  "key_themes": ["theme1", "theme2", "theme3"],
   "sentiment": {{"positive": 0.XX, "negative": 0.XX, "neutral": 0.XX}},
   "insights": "string",
-  "recommendations": ["rec1", "rec2"]
-}}"""
+  "recommendations": ["rec1", "rec2", "rec3"]
+}}
+
+Return ONLY valid JSON, no other text."""
 
             response = llm.invoke(prompt)
             
             try:
                 # Extract JSON from response (handles extra text)
                 content = response.content
-                # Find the first { and last } to capture JSON object
                 json_match = re.search(r'\{.*\}', content, re.DOTALL)
                 if json_match:
                     result = json.loads(json_match.group())
                 else:
-                    # Fallback: try to parse whole content
                     result = json.loads(content)
                 
                 # Save to history
@@ -181,7 +230,6 @@ Return JSON format:
                 with col2:
                     themes = result.get('key_themes', ["Theme1", "Theme2", "Theme3"])
                     if themes:
-                        # Use actual theme names with sample frequencies
                         df = pd.DataFrame({
                             "Theme": themes[:3], 
                             "Frequency": [45, 30, 25][:len(themes[:3])]
@@ -193,8 +241,7 @@ Return JSON format:
                 for i, rec in enumerate(result.get('recommendations', []), 1):
                     st.write(f"{i}. {rec}")
                     
-                # Force refresh to show history
-                st.rerun()
+                # Removed the problematic st.rerun() that caused flickering
                     
             except Exception as e:
                 st.error(f"Could not parse structured output. Showing raw response:")
