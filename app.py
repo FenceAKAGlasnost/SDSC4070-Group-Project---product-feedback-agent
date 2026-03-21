@@ -99,7 +99,7 @@ with st.sidebar:
     st.header("⚙️ Settings")
     agent_mode = st.selectbox(
         "Analysis Mode",
-        ["Full Analysis", "Quick Summary", "Deep Dive", "Recommendations", "Executive"]
+        ["Data Cleaning Specialist", "Feedback Analyst", "Professional Summarizer", "Product Improvement Expert", "Report Writer"]
     )
     temperature = st.slider("Temperature", 0.0, 1.0, 0.65)
 
