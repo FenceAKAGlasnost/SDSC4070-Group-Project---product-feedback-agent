@@ -74,7 +74,7 @@ if st.button("🚀 Analyze Feedback", type="primary", use_container_width=True):
                #  Five clearly different prompt branches
             # ────────────────────────────────────────────────
 
-            elif agent_mode == "1. Full 5-Agent Analysis (Recommended)":
+            if agent_mode == "1. Full 5-Agent Analysis (Recommended)":
                 prompt = f"""You are simulating a full multi-agent product feedback analysis pipeline.
             Analyze the following comments and return **only valid JSON** (no other text).
 
