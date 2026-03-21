@@ -74,21 +74,25 @@ if st.button("🚀 Analyze Feedback", type="primary", use_container_width=True):
                #  Five clearly different prompt branches
             # ────────────────────────────────────────────────
 
-            if agent_mode == "1. Full 5-Agent Analysis (Recommended)":
-               prompt = f"""You are simulating a full multi-agent pipeline for product feedback analysis.
+            elif agent_mode == "1. Full 5-Agent Analysis (Recommended)":
+                prompt = f"""You are simulating a full multi-agent product feedback analysis pipeline.
+            Analyze the following comments and return **only valid JSON** (no other text).
 
-               Step 1 - Cleaning Agent: Remove duplicates, spam, short/irrelevant entries from these comments:
-               {comments}
+            Comments:
+            {comments}
 
-               Step 2 - Analysis Agent: From the cleaned comments, extract main themes and sentiment (positive/negative/neutral).
-
-               Step 3 - Summary Agent: Write a balanced 4-6 sentence executive summary.
-
-               Step 4 - Recommendation Agent: Provide 6-8 specific, prioritized recommendations for v2.
-
-               Step 5 - Report Agent: Compile everything into a clean markdown report.
-
-               Output the final report only, with clear section headings."""
+            Return exactly this JSON structure:
+            {{
+              "executive_summary": "3-5 sentence summary",
+              "key_themes": [
+                {{"theme": "Battery life", "sentiment": "negative", "frequency": 12, "examples": ["drains fast", "only 4 hours"]}},
+                ...
+              ],
+              "sentiment_distribution": {{"positive": 0.25, "negative": 0.60, "neutral": 0.15}},
+              "recommendations": ["Fix memory leaks - high priority because...", ...]
+            }}
+            
+            Be accurate. Use percentages for sentiment that sum to 1.0. Estimate frequency realistically."""
 
             elif agent_mode == "2. Quick Summary Agent":
                 prompt = f"""You are a fast executive summary agent.
@@ -147,46 +151,42 @@ if st.button("🚀 Analyze Feedback", type="primary", use_container_width=True):
             response = llm.invoke(prompt)
             
             try:
-                # Try to parse JSON from LLM response
-                result = json.loads(response.content)
-                
-                st.success("✅ Analysis Complete!")
-                
-                # Display Report
-                st.markdown("### 📋 Final Report")
-                st.markdown(f"**Executive Summary**  \n{result.get('executive_summary', '')}")
-                st.markdown("**Key Themes**")
-                st.write(result.get('key_themes', []))
-                st.markdown("**Detailed Insights**")
-                st.write(result.get('insights', ''))
+                data = json.loads(response.content)
 
-                # === CHARTS ===
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    sentiment_data = result.get('sentiment', {"positive": 0.4, "negative": 0.45, "neutral": 0.15})
-                    fig_pie = px.pie(
-                        names=list(sentiment_data.keys()),
-                        values=list(sentiment_data.values()),
-                        title="Sentiment Distribution",
-                        color_discrete_sequence=px.colors.sequential.RdBu
-                    )
-                    st.plotly_chart(fig_pie, use_container_width=True)
+                # Text parts
+                st.markdown("### Executive Summary")
+                st.write(data["executive_summary"])
 
-                with col2:
-                    # Fake theme frequencies for bar chart (you can improve this later)
-                    themes = result.get('key_themes', ["Battery", "Design", "Price", "Performance"])[:4]
-                    values = [45, 30, 25, 20]
-                    df = pd.DataFrame({"Theme": themes, "Frequency": values})
-                    fig_bar = px.bar(df, x="Theme", y="Frequency", title="Top Themes")
+                st.markdown("### Key Themes")
+                for t in data["key_themes"]:
+                    st.write(f"• **{t['theme']}** ({t['sentiment']}, ~{t['frequency']} mentions)")
+
+                # Pie chart – Sentiment
+                sentiment_df = pd.DataFrame({
+                    "Sentiment": list(data["sentiment_distribution"].keys()),
+                    "Percentage": list(data["sentiment_distribution"].values())
+                })
+                fig_pie = px.pie(sentiment_df, values="Percentage", names="Sentiment",
+                                 title="Overall Sentiment Distribution",
+                                 color_discrete_sequence=["#66c2a5", "#fc8d62", "#8da0cb"])
+                st.plotly_chart(fig_pie, use_container_width=True)
+
+                # Bar chart – Top themes by frequency
+                theme_df = pd.DataFrame(data["key_themes"])
+                if not theme_df.empty:
+                    fig_bar = px.bar(theme_df, x="theme", y="frequency",
+                                     title="Top Themes by Mention Frequency",
+                                     color="sentiment",
+                                     color_discrete_map={"positive": "#66c2a5", "negative": "#fc8d62", "neutral": "#8da0cb"})
                     st.plotly_chart(fig_bar, use_container_width=True)
 
-                st.markdown("**Recommendations for Product v2**")
-                for i, rec in enumerate(result.get('recommendations', []), 1):
-                    st.write(f"{i}. {rec}")
+                # Recommendations
+                st.markdown("### Recommendations")
+                for r in data["recommendations"]:
+                    st.write(f"• {r}")
 
-            except:
-                st.error("Could not parse structured output. Showing raw response:")
+            except Exception as e:
+                st.error("Could not parse structured output. Showing raw text instead.")
                 st.markdown(response.content)
 
 st.caption("SDSC4070 Large Language Models • Product Feedback Agent System")
