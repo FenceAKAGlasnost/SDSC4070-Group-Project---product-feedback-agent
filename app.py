@@ -157,7 +157,7 @@ if st.button("🚀 Analyze Feedback", type="primary", use_container_width=True):
             # Special handling for Agent 1 (with charts)
             # ────────────────────────────────────────────────
             if agent_mode == "1. Full 5-Agent Analysis (Recommended)":
-            try:
+             try:
                 # Clean the response content (remove extra whitespace, backticks, etc.)
                 raw = response.content.strip()
                 if raw.startswith("```json"):
