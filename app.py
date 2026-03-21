@@ -230,18 +230,6 @@ Comments:
 
 Output the full report in markdown format with headings."""
     
-    Comments:
-    {final_comments}
-    
-    Return JSON in this exact format:
-    {{
-      "executive_summary": "string",
-      "key_themes": ["theme1", "theme2", "theme3"],
-      "sentiment": {{"positive": 0.40, "negative": 0.45, "neutral": 0.15}},
-      "insights": "string",
-      "recommendations": ["rec1", "rec2", "rec3"]
-    }}
-    
 
     
                 response = llm.invoke(prompt)
