@@ -220,4 +220,82 @@ if st.button("🚀 Analyze Feedback", type="primary", use_container_width=True):
              except Exception as e:
                 st.error(f"Unexpected error: {e}")
                 st.markdown(response.content)
-st.caption("SDSC4070 Large Language Models • Product Feedback Agent System")
+                 
+# ==================== TAB 2: HISTORY ====================
+with tab2:
+    st.subheader("📋 Analysis History")
+    
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.write(f"**Total Analyses:** {len(st.session_state.get('history', []))}")
+    with col2:
+        df = export_history_csv()
+        if df is not None:
+            csv = df.to_csv(index=False)
+            st.download_button("📥 Export CSV", csv, "history.csv", "text/csv")
+    
+    if 'history' in st.session_state and st.session_state.history:
+        # Display history in a table
+        history_data = []
+        for entry in reversed(st.session_state.history):
+            pos = entry['sentiment'].get('positive', 0)
+            sentiment_icon = "🟢" if pos > 0.6 else "🟡" if pos > 0.3 else "🔴"
+            
+            history_data.append({
+                "ID": entry['id'],
+                "Date": entry['timestamp'][:10],
+                "Comments": entry['comments_preview'],
+                "Themes": ", ".join(entry['key_themes'][:2]),
+                "Sentiment": sentiment_icon
+            })
+        
+        df_history = pd.DataFrame(history_data)
+        
+        # Make it clickable
+        for idx, row in df_history.iterrows():
+            col1, col2, col3, col4, col5 = st.columns([1, 2, 4, 3, 1])
+            with col1:
+                st.write(f"#{row['ID']}")
+            with col2:
+                st.write(row['Date'])
+            with col3:
+                st.write(row['Comments'])
+            with col4:
+                st.write(row['Themes'])
+            with col5:
+                st.write(row['Sentiment'])
+            with col3:  # Use an extra column for the button
+                if st.button("View", key=f"view_{row['ID']}"):
+                    st.session_state.viewing_entry = row['ID']
+            
+            st.divider()
+        
+        # Show selected history entry
+        if 'viewing_entry' in st.session_state:
+            entry = next((e for e in st.session_state.history if e['id'] == st.session_state.viewing_entry), None)
+            if entry:
+                st.markdown("---")
+                st.subheader(f"Full Analysis #{entry['id']}")
+                st.caption(f"Analyzed on: {entry['timestamp']}")
+                
+                with st.expander("View Full Comments"):
+                    st.write(entry['comments_full'])
+                
+                # Recreate result dict for display
+                result = {
+                    'executive_summary': entry['executive_summary'],
+                    'key_themes': entry['key_themes'],
+                    'sentiment': entry['sentiment'],
+                    'insights': entry['insights'],
+                    'recommendations': entry['recommendations']
+                }
+                display_analysis(result)
+    else:
+        st.info("No history yet. Run an analysis in the 'New Analysis' tab!")
+
+    if st.button("Clear All History"):
+        clear_history()
+        st.rerun()
+
+st.caption("Powered by OpenRouter • Click history entries to view full analysis")
+
