@@ -157,65 +157,67 @@ if st.button("🚀 Analyze Feedback", type="primary", use_container_width=True):
             # Special handling for Agent 1 (with charts)
             # ────────────────────────────────────────────────
             if agent_mode == "1. Full 5-Agent Analysis (Recommended)":
-                try:
-                    data = json.loads(response.content.strip())
+            try:
+                # Clean the response content (remove extra whitespace, backticks, etc.)
+                raw = response.content.strip()
+                if raw.startswith("```json"):
+                    raw = raw.split("```json", 1)[1].split("```", 1)[0]
+                elif raw.startswith("```"):
+                    raw = raw.split("```", 2)[1]
+            
+                data = json.loads(raw)
+            
+                # ──────────────── TEXT REPORT ────────────────
+                st.markdown("### Executive Summary")
+                st.write(data.get("executive_summary", "No summary available"))
 
-                    # Text report
-                    st.markdown("### Executive Summary")
-                    st.write(data.get("executive_summary", "No summary available"))
+                st.markdown("### Key Themes")
+                for theme in data.get("key_themes", []):
+                    st.write(f"• **{theme.get('theme', 'Unknown')}** ({theme.get('sentiment', 'N/A')}, ~{theme.get('frequency', '?')} mentions)")
 
-                    st.markdown("### Key Themes")
-                    for theme in data.get("key_themes", []):
-                        st.write(f"• **{theme['theme']}** ({theme['sentiment']}, ~{theme['frequency']} mentions)")
+                # ──────────────── CHARTS ────────────────
+                st.markdown("### Visualizations")
+                col1, col2 = st.columns(2)
 
-                    st.markdown("### Insights")
-                    st.write(data.get("insights", "No insights available"))
+                # Pie chart: Sentiment Distribution
+                with col1:
+                    sent = data.get("sentiment_distribution", {"positive": 0.33, "negative": 0.33, "neutral": 0.34})
+                    fig_pie = px.pie(
+                        values=list(sent.values()),
+                        names=list(sent.keys()),
+                        title="Sentiment Distribution",
+                        hole=0.4,
+                        color_discrete_sequence=["#66c2a5", "#fc8d62", "#8da0cb"]
+                    )
+                    st.plotly_chart(fig_pie, use_container_width=True)
 
-                    st.markdown("### Recommendations")
-                    for rec in data.get("recommendations", []):
-                        st.write(f"• {rec}")
-
-                    # ──────────────── CHARTS ────────────────
-                    st.markdown("### Visualizations")
-
-                    col1, col2 = st.columns(2)
-
-                    # Pie chart: Sentiment
-                    with col1:
-                        sent = data.get("sentiment_distribution", {"positive": 0.33, "negative": 0.33, "neutral": 0.34})
-                        fig_pie = px.pie(
-                            names=list(sent.keys()),
-                            values=list(sent.values()),
-                            title="Sentiment Distribution",
-                            hole=0.4,
-                            color_discrete_sequence=["#66c2a5", "#fc8d62", "#8da0cb"]
+                # Bar chart: Top Themes by Frequency
+                with col2:
+                    themes = data.get("key_themes", [])
+                    if themes:
+                        df = pd.DataFrame(themes)
+                        fig_bar = px.bar(
+                            df,
+                            x="theme",
+                            y="frequency",
+                            color="sentiment",
+                            title="Top Themes by Mention Frequency",
+                            color_discrete_map={"positive": "#66c2a5", "negative": "#fc8d62", "neutral": "#8da0cb"}
                         )
-                        st.plotly_chart(fig_pie, use_container_width=True)
+                        st.plotly_chart(fig_bar, use_container_width=True)
+                    else:
+                        st.info("No theme frequency data available for chart")
 
-                    # Bar chart: Top themes
-                    with col2:
-                        themes = data.get("key_themes", [])
-                        if themes:
-                            df = pd.DataFrame(themes)
-                            fig_bar = px.bar(
-                                df,
-                                x="theme",
-                                y="frequency",
-                                color="sentiment",
-                                title="Top Themes by Frequency",
-                                color_discrete_map={"positive": "#66c2a5", "negative": "#fc8d62", "neutral": "#8da0cb"}
-                            )
-                            st.plotly_chart(fig_bar, use_container_width=True)
-                        else:
-                            st.info("No theme data available for chart")
+                # Recommendations
+                st.markdown("### Recommendations")
+                for rec in data.get("recommendations", []):
+                    st.write(f"• {rec}")
 
-                except json.JSONDecodeError:
-                    st.warning("LLM output was not valid JSON. Showing raw text instead.")
-                    st.markdown(response.content)
-
-            else:
-                # All other modes → just show text
-                st.markdown("### Report Output")
+            except json.JSONDecodeError as e:
+                st.warning(f"JSON parsing failed: {e}")
+                st.markdown("Raw LLM output (fallback):")
+                st.code(response.content, language="json")
+            except Exception as e:
+                st.error(f"Unexpected error: {e}")
                 st.markdown(response.content)
-
 st.caption("SDSC4070 Large Language Models • Product Feedback Agent System")
