@@ -243,14 +243,14 @@ try:
   result = json.loads(content)
                     
             # Save to history
-            save_to_history(final_comments, result)
+  save_to_history(final_comments, result)
                     
-            st.success("✅ Analysis Complete!")
-            display_analysis(result)
+  st.success("✅ Analysis Complete!")
+  display_analysis(result)
                     
-    except Exception as e:
-     st.error(f"Error parsing response")
-     st.markdown(response.content)
+ except Exception as e:
+  st.error(f"Error parsing response")
+  st.markdown(response.content)
 
 # ==================== TAB 2: HISTORY ====================
 with tab2:
