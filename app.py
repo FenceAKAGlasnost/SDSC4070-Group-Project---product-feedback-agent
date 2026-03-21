@@ -242,7 +242,7 @@ Output the full report in markdown format with headings."""
       "recommendations": ["rec1", "rec2", "rec3"]
     }}
     
-    Be accurate and balanced."""
+
     
                 response = llm.invoke(prompt)
                 
