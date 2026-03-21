@@ -238,9 +238,9 @@ try:
  content = response.content
  json_match = re.search(r'\{.*\}', content, re.DOTALL)
  if json_match:
- result = json.loads(json_match.group())
+  result = json.loads(json_match.group())
  else:
- result = json.loads(content)
+  result = json.loads(content)
                     
             # Save to history
             save_to_history(final_comments, result)
