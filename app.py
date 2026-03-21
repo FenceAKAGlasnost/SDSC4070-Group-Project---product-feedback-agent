@@ -237,7 +237,7 @@ Output the full report in markdown format with headings."""
     {{
       "executive_summary": "string",
       "key_themes": ["theme1", "theme2", "theme3"],
-      "sentiment": {{"positive": 0.XX, "negative": 0.XX, "neutral": 0.XX}},
+      "sentiment": {{"positive": 0.40, "negative": 0.45, "neutral": 0.15}},
       "insights": "string",
       "recommendations": ["rec1", "rec2", "rec3"]
     }}
