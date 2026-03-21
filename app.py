@@ -90,8 +90,8 @@ if st.button("🚀 Analyze Feedback", type="primary", use_container_width=True):
 
                Output the final report only, with clear section headings."""
 
-               elif agent_mode == "2. Quick Summary Agent":
-                   prompt = f"""You are a fast executive summary agent.
+            elif agent_mode == "2. Quick Summary Agent":
+                prompt = f"""You are a fast executive summary agent.
                Focus ONLY on producing a concise 3-5 sentence summary of the key strengths and pain points.
 
                Comments:
@@ -99,7 +99,7 @@ if st.button("🚀 Analyze Feedback", type="primary", use_container_width=True):
 
                Do not list themes or recommendations. Summary only."""
 
-               elif agent_mode == "3. Theme & Sentiment Deep Dive":
+            elif agent_mode == "3. Theme & Sentiment Deep Dive":
                    prompt = f"""You are a theme & sentiment analysis specialist.
                Extract and list the top 6–10 themes from the comments.
                For each theme:
@@ -113,7 +113,7 @@ if st.button("🚀 Analyze Feedback", type="primary", use_container_width=True):
 
                Output only a markdown bullet list. No summary or recommendations."""
 
-               elif agent_mode == "4. Recommendation-Focused Agent":
+            elif agent_mode == "4. Recommendation-Focused Agent":
                    prompt = f"""You are a product improvement strategist.
                Read the comments and generate ONLY a numbered list of 7–10 concrete, prioritized recommendations for the next product version.
 
@@ -127,7 +127,7 @@ if st.button("🚀 Analyze Feedback", type="primary", use_container_width=True):
 
                Output only the numbered list. No summary or theme list."""
 
-               else:  # "5. Professional Executive Report"
+            else:  # "5. Professional Executive Report"
                    prompt = f"""You are a professional business report writer.
                Create a polished executive-level report from the customer feedback.
 
