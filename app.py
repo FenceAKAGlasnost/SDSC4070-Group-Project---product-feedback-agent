@@ -229,9 +229,7 @@ Comments:
 {comments}
 
 Output the full report in markdown format with headings."""
-    
 
-    
 response = llm.invoke(prompt)
                 
 try:
