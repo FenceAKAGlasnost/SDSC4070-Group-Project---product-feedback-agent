@@ -148,45 +148,74 @@ if st.button("🚀 Analyze Feedback", type="primary", use_container_width=True):
 
                Output the full report in markdown format with headings."""
 
+# Invoke LLM
             response = llm.invoke(prompt)
-            
-            try:
-                data = json.loads(response.content)
 
-                # Text parts
-                st.markdown("### Executive Summary")
-                st.write(data["executive_summary"])
+            st.success("✅ Analysis Complete!")
 
-                st.markdown("### Key Themes")
-                for t in data["key_themes"]:
-                    st.write(f"• **{t['theme']}** ({t['sentiment']}, ~{t['frequency']} mentions)")
+            # ────────────────────────────────────────────────
+            # Special handling for Agent 1 (with charts)
+            # ────────────────────────────────────────────────
+            if agent_mode == "1. Full 5-Agent Analysis (Recommended)":
+                try:
+                    data = json.loads(response.content.strip())
 
-                # Pie chart – Sentiment
-                sentiment_df = pd.DataFrame({
-                    "Sentiment": list(data["sentiment_distribution"].keys()),
-                    "Percentage": list(data["sentiment_distribution"].values())
-                })
-                fig_pie = px.pie(sentiment_df, values="Percentage", names="Sentiment",
-                                 title="Overall Sentiment Distribution",
-                                 color_discrete_sequence=["#66c2a5", "#fc8d62", "#8da0cb"])
-                st.plotly_chart(fig_pie, use_container_width=True)
+                    # Text report
+                    st.markdown("### Executive Summary")
+                    st.write(data.get("executive_summary", "No summary available"))
 
-                # Bar chart – Top themes by frequency
-                theme_df = pd.DataFrame(data["key_themes"])
-                if not theme_df.empty:
-                    fig_bar = px.bar(theme_df, x="theme", y="frequency",
-                                     title="Top Themes by Mention Frequency",
-                                     color="sentiment",
-                                     color_discrete_map={"positive": "#66c2a5", "negative": "#fc8d62", "neutral": "#8da0cb"})
-                    st.plotly_chart(fig_bar, use_container_width=True)
+                    st.markdown("### Key Themes")
+                    for theme in data.get("key_themes", []):
+                        st.write(f"• **{theme['theme']}** ({theme['sentiment']}, ~{theme['frequency']} mentions)")
 
-                # Recommendations
-                st.markdown("### Recommendations")
-                for r in data["recommendations"]:
-                    st.write(f"• {r}")
+                    st.markdown("### Insights")
+                    st.write(data.get("insights", "No insights available"))
 
-            except Exception as e:
-                st.error("Could not parse structured output. Showing raw text instead.")
+                    st.markdown("### Recommendations")
+                    for rec in data.get("recommendations", []):
+                        st.write(f"• {rec}")
+
+                    # ──────────────── CHARTS ────────────────
+                    st.markdown("### Visualizations")
+
+                    col1, col2 = st.columns(2)
+
+                    # Pie chart: Sentiment
+                    with col1:
+                        sent = data.get("sentiment_distribution", {"positive": 0.33, "negative": 0.33, "neutral": 0.34})
+                        fig_pie = px.pie(
+                            names=list(sent.keys()),
+                            values=list(sent.values()),
+                            title="Sentiment Distribution",
+                            hole=0.4,
+                            color_discrete_sequence=["#66c2a5", "#fc8d62", "#8da0cb"]
+                        )
+                        st.plotly_chart(fig_pie, use_container_width=True)
+
+                    # Bar chart: Top themes
+                    with col2:
+                        themes = data.get("key_themes", [])
+                        if themes:
+                            df = pd.DataFrame(themes)
+                            fig_bar = px.bar(
+                                df,
+                                x="theme",
+                                y="frequency",
+                                color="sentiment",
+                                title="Top Themes by Frequency",
+                                color_discrete_map={"positive": "#66c2a5", "negative": "#fc8d62", "neutral": "#8da0cb"}
+                            )
+                            st.plotly_chart(fig_bar, use_container_width=True)
+                        else:
+                            st.info("No theme data available for chart")
+
+                except json.JSONDecodeError:
+                    st.warning("LLM output was not valid JSON. Showing raw text instead.")
+                    st.markdown(response.content)
+
+            else:
+                # All other modes → just show text
+                st.markdown("### Report Output")
                 st.markdown(response.content)
 
 st.caption("SDSC4070 Large Language Models • Product Feedback Agent System")
