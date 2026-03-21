@@ -213,11 +213,11 @@ if st.button("🚀 Analyze Feedback", type="primary", use_container_width=True):
                 for rec in data.get("recommendations", []):
                     st.write(f"• {rec}")
 
-            except json.JSONDecodeError as e:
+             except json.JSONDecodeError as e:
                 st.warning(f"JSON parsing failed: {e}")
                 st.markdown("Raw LLM output (fallback):")
                 st.code(response.content, language="json")
-            except Exception as e:
+             except Exception as e:
                 st.error(f"Unexpected error: {e}")
                 st.markdown(response.content)
 st.caption("SDSC4070 Large Language Models • Product Feedback Agent System")
