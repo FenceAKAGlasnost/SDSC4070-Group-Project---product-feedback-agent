@@ -70,22 +70,79 @@ if st.button("🚀 Analyze Feedback", type="primary", use_container_width=True):
                 max_tokens=2500
             )
 
-            prompt = f"""Analyze the following customer comments and return a JSON object only.
-Do not add any explanation outside the JSON.
+            # ────────────────────────────────────────────────
+#  Five clearly different prompt branches
+# ────────────────────────────────────────────────
+
+if agent_mode == "1. Full 5-Agent Analysis (Recommended)":
+    prompt = f"""You are simulating a full multi-agent pipeline for product feedback analysis.
+
+Step 1 - Cleaning Agent: Remove duplicates, spam, short/irrelevant entries from these comments:
+{comments}
+
+Step 2 - Analysis Agent: From the cleaned comments, extract main themes and sentiment (positive/negative/neutral).
+
+Step 3 - Summary Agent: Write a balanced 4-6 sentence executive summary.
+
+Step 4 - Recommendation Agent: Provide 6-8 specific, prioritized recommendations for v2.
+
+Step 5 - Report Agent: Compile everything into a clean markdown report.
+
+Output the final report only, with clear section headings."""
+
+elif agent_mode == "2. Quick Summary Agent":
+    prompt = f"""You are a fast executive summary agent.
+Focus ONLY on producing a concise 3-5 sentence summary of the key strengths and pain points.
 
 Comments:
-{final_comments}
+{comments}
 
-Return JSON in this exact format:
-{{
-  "executive_summary": "string",
-  "key_themes": ["theme1", "theme2", ...],
-  "sentiment": {{"positive": 0.XX, "negative": 0.XX, "neutral": 0.XX}},
-  "insights": "string",
-  "recommendations": ["rec1", "rec2", ...]
-}}
+Do not list themes or recommendations. Summary only."""
 
-Be accurate and balanced."""
+elif agent_mode == "3. Theme & Sentiment Deep Dive":
+    prompt = f"""You are a theme & sentiment analysis specialist.
+Extract and list the top 6–10 themes from the comments.
+For each theme:
+- Name the theme
+- Sentiment (positive / negative / neutral)
+- Approximate frequency (% or count)
+- 1–2 short example quotes
+
+Comments:
+{comments}
+
+Output only a markdown bullet list. No summary or recommendations."""
+
+elif agent_mode == "4. Recommendation-Focused Agent":
+    prompt = f"""You are a product improvement strategist.
+Read the comments and generate ONLY a numbered list of 7–10 concrete, prioritized recommendations for the next product version.
+
+Each recommendation should include:
+- Priority (High/Medium/Low)
+- What to change/add/fix
+- Why (based on user feedback)
+
+Comments:
+{comments}
+
+Output only the numbered list. No summary or theme list."""
+
+else:  # "5. Professional Executive Report"
+    prompt = f"""You are a professional business report writer.
+Create a polished executive-level report from the customer feedback.
+
+Include:
+1. Executive Summary (3–5 sentences)
+2. Key Strengths
+3. Main Pain Points
+4. Strategic Recommendations (5–7 items)
+
+Use formal, confident, business-oriented language.
+
+Comments:
+{comments}
+
+Output the full report in markdown format with headings."""
 
             response = llm.invoke(prompt)
             
