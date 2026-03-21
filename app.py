@@ -248,9 +248,9 @@ try:
   st.success("✅ Analysis Complete!")
   display_analysis(result)
                     
-   except Exception as e:
-    st.error(f"Error parsing response")
-    st.markdown(response.content)
+  except Exception as e:
+   st.error(f"Error parsing response")
+   st.markdown(response.content)
 
 # ==================== TAB 2: HISTORY ====================
 with tab2:
