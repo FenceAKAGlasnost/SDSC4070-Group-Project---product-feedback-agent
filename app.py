@@ -30,37 +30,37 @@ tab1, tab2 = st.tabs(["📝 New Analysis", "📋 History"])
 # Main Area
 # ==================== TAB 1: NEW ANALYSIS ====================
 with tab1:
-st.subheader("Paste user reviews / comments")
+ st.subheader("Paste user reviews / comments")
 
-uploaded_file = st.file_uploader("Upload a .txt or .csv file", type=["txt", "csv"])
+ uploaded_file = st.file_uploader("Upload a .txt or .csv file", type=["txt", "csv"])
 
-comments = st.text_area(
+ comments = st.text_area(
     "Enter customer comments here:",
     height=180,
     placeholder="Paste reviews here..."
-)
+ )
 
-# Sample Dropdown
-st.subheader("📋 Quick Demo Samples")
-sample_option = st.selectbox(
+ # Sample Dropdown
+ st.subheader("📋 Quick Demo Samples")
+ sample_option = st.selectbox(
     "Load a sample dataset:",
     ["Select a sample...", "📱 Phone App Feedback", "🍔 Food Delivery Feedback", 
      "💻 Laptop Feedback", "🎮 Gaming Console Feedback"]
-)
+ )
 
-samples = {
+ samples = {
     "📱 Phone App Feedback": "The app keeps crashing on Android. Battery drains way too fast. Beautiful design but too expensive. UI is confusing.",
     "🍔 Food Delivery Feedback": "Food always arrives cold. Delivery is late. Great variety but prices too high. Driver was rude.",
     "💻 Laptop Feedback": "Screen is bright. Keyboard feels cheap. Fast performance. Overheats during gaming. Best laptop in this price.",
     "🎮 Gaming Console Feedback": "Graphics amazing. Controller feels great. Loading times too long. Overheats after 2 hours."
 }
 
-if sample_option != "Select a sample...":
+ if sample_option != "Select a sample...":
     st.text_area("Sample Comments (copy & paste above):", 
                  value=samples[sample_option], height=100, disabled=True)
 
 # ====================== ANALYZE BUTTON ======================
-if st.button("🚀 Analyze Feedback", type="primary", use_container_width=True):
+ if st.button("🚀 Analyze Feedback", type="primary", use_container_width=True):
     final_comments = comments
     if uploaded_file:
         final_comments = final_comments + "\n\n" + uploaded_file.getvalue().decode("utf-8")
