@@ -24,7 +24,12 @@ agent_mode = st.sidebar.selectbox(
 )
 temperature = st.sidebar.slider("Temperature (Creativity)", 0.0, 1.0, 0.65)
 
+# ==================== TOP TABS ====================
+tab1, tab2 = st.tabs(["📝 New Analysis", "📋 History"])
+
 # Main Area
+# ==================== TAB 1: NEW ANALYSIS ====================
+with tab1:
 st.subheader("Paste user reviews / comments")
 
 uploaded_file = st.file_uploader("Upload a .txt or .csv file", type=["txt", "csv"])
