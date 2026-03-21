@@ -25,6 +25,30 @@ agent_mode = st.sidebar.selectbox(
 temperature = st.sidebar.slider("Temperature (Creativity)", 0.0, 1.0, 0.65)
 
 # ==================== TOP TABS ====================
+def export_history_csv():
+    if 'history' not in st.session_state or not st.session_state.history:
+        return None
+    
+    # Flatten the history entries into a simple DataFrame
+    history_data = []
+    for entry in st.session_state.history:
+        history_data.append({
+            "ID": entry.get('id', ''),
+            "Timestamp": entry.get('timestamp', ''),
+            "Comments Preview": entry.get('comments_preview', ''),
+            "Full Comments": entry.get('comments_full', ''),
+            "Executive Summary": entry.get('executive_summary', ''),
+            "Key Themes": ", ".join(entry.get('key_themes', [])),
+            "Positive %": entry.get('sentiment', {}).get('positive', 0),
+            "Negative %": entry.get('sentiment', {}).get('negative', 0),
+            "Neutral %": entry.get('sentiment', {}).get('neutral', 0),
+            "Insights": entry.get('insights', ''),
+            "Recommendations": "\n".join(entry.get('recommendations', []))
+        })
+    
+    return pd.DataFrame(history_data)
+
+
 tab1, tab2 = st.tabs(["📝 New Analysis", "📋 History"])
 
 # Main Area
