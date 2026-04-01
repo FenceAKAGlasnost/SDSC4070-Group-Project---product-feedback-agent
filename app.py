@@ -41,7 +41,7 @@ def save_to_history(comments_preview, comments_full, executive_summary, key_them
         "comments_preview": comments_preview[:100] + ("..." if len(comments_preview) > 100 else ""),
         "comments_full": comments_full,
         "executive_summary": executive_summary,
-        "key_themes": key_themes,
+        "key_themes": key_themes,   # can be list of strings or list of dicts
         "sentiment": sentiment,
         "insights": insights,
         "recommendations": recommendations
@@ -52,8 +52,8 @@ def display_analysis(result):
     st.markdown("### Executive Summary")
     st.write(result.get("executive_summary", "No summary"))
     st.markdown("### Key Themes")
-    for theme in result.get("key_themes", []):
-        # If theme is a dict (from JSON mode) or string (from other modes)
+    themes = result.get("key_themes", [])
+    for theme in themes:
         if isinstance(theme, dict):
             st.write(f"• **{theme.get('theme', 'Unknown')}** ({theme.get('sentiment', 'N/A')}, ~{theme.get('frequency', '?')} mentions)")
         else:
@@ -69,18 +69,28 @@ def export_history_csv():
 
     history_data = []
     for entry in st.session_state.history:
+        # Convert key_themes to a string safely
+        themes = entry.get('key_themes', [])
+        if isinstance(themes, list):
+            themes_str = ", ".join(str(t) for t in themes)  # handles dicts or strings
+        else:
+            themes_str = str(themes)
+
+        recs = entry.get('recommendations', [])
+        recs_str = "\n".join(str(r) for r in recs)
+
         history_data.append({
             "ID": entry.get('id', ''),
             "Timestamp": entry.get('timestamp', ''),
             "Comments Preview": entry.get('comments_preview', ''),
             "Full Comments": entry.get('comments_full', ''),
             "Executive Summary": entry.get('executive_summary', ''),
-            "Key Themes": ", ".join(entry.get('key_themes', [])),
+            "Key Themes": themes_str,
             "Positive %": entry.get('sentiment', {}).get('positive', 0),
             "Negative %": entry.get('sentiment', {}).get('negative', 0),
             "Neutral %": entry.get('sentiment', {}).get('neutral', 0),
             "Insights": entry.get('insights', ''),
-            "Recommendations": "\n".join(entry.get('recommendations', []))
+            "Recommendations": recs_str
         })
 
     return pd.DataFrame(history_data)
@@ -136,7 +146,7 @@ with tab1:
                     max_tokens=2500
                 )
 
-                # Five different prompt branches (using final_comments, not just comments)
+                # Five different prompt branches (using final_comments)
                 if agent_mode == "1. Full 5-Agent Analysis (Recommended)":
                     prompt = f"""You are simulating a full multi-agent product feedback analysis pipeline.
                 Analyze the following comments and return **only valid JSON** (no other text).
@@ -276,7 +286,7 @@ with tab1:
                             executive_summary=data.get("executive_summary", ""),
                             key_themes=data.get("key_themes", []),
                             sentiment=data.get("sentiment_distribution", {}),
-                            insights="",   # not available in JSON output
+                            insights="",
                             recommendations=data.get("recommendations", [])
                         )
 
@@ -341,20 +351,27 @@ with tab2:
         # Display history in a table
         history_data = []
         for entry in reversed(st.session_state.history):
-            pos = entry['sentiment'].get('positive', 0)
+            pos = entry.get('sentiment', {}).get('positive', 0)
             sentiment_text = "Positive" if pos > 0.6 else "Mixed" if pos > 0.3 else "Negative"
 
+            # Safely convert key_themes to a string for display
+            themes = entry.get('key_themes', [])
+            if isinstance(themes, list):
+                themes_preview = ", ".join(str(t)[:50] for t in themes[:2])  # show first two themes, truncated
+            else:
+                themes_preview = str(themes)[:100]
+
             history_data.append({
-                "ID": entry['id'],
-                "Date": entry['timestamp'][:10],
-                "Comments": entry['comments_preview'],
-                "Themes": ", ".join(entry['key_themes'][:2]),
+                "ID": entry.get('id', ''),
+                "Date": entry.get('timestamp', '')[:10],
+                "Comments": entry.get('comments_preview', ''),
+                "Themes": themes_preview,
                 "Sentiment": sentiment_text
             })
 
         df_history = pd.DataFrame(history_data)
 
-        # Display clickable rows
+        # Make it clickable
         for idx, row in df_history.iterrows():
             cols = st.columns([1, 2, 4, 3, 1])
             with cols[0]:
@@ -368,21 +385,20 @@ with tab2:
             with cols[4]:
                 st.write(row['Sentiment'])
 
-            # Button in a separate row or column? Use a single button after the columns
             if st.button("View", key=f"view_{row['ID']}"):
                 st.session_state.viewing_entry = row['ID']
             st.divider()
 
         # Show selected history entry
         if 'viewing_entry' in st.session_state:
-            entry = next((e for e in st.session_state.history if e['id'] == st.session_state.viewing_entry), None)
+            entry = next((e for e in st.session_state.history if e.get('id') == st.session_state.viewing_entry), None)
             if entry:
                 st.markdown("---")
-                st.subheader(f"Full Analysis #{entry['id']}")
-                st.caption(f"Analyzed on: {entry['timestamp']}")
+                st.subheader(f"Full Analysis #{entry.get('id')}")
+                st.caption(f"Analyzed on: {entry.get('timestamp', '')}")
 
                 with st.expander("View Full Comments"):
-                    st.write(entry['comments_full'])
+                    st.write(entry.get('comments_full', ''))
 
                 # Use display_analysis to show the stored data
                 display_analysis(entry)
