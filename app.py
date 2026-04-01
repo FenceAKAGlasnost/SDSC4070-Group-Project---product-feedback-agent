@@ -6,7 +6,7 @@ import plotly.express as px
 import pandas as pd
 import json
 from datetime import datetime
-from agent import create_crew   # NEW: import the real multi-agent pipeline
+from agents import create_crew
 
 load_dotenv()
 os.environ["OPENROUTER_API_KEY"] = st.secrets["OPENROUTER_API_KEY"]
