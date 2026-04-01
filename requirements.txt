@@ -1,9 +1,4 @@
-crewai
-langchain
-litellm
+streamlit
+python-dotenv
 langchain-openrouter
 plotly
-pandas
-python-dotenv
-streamlit
-# force rebuild
