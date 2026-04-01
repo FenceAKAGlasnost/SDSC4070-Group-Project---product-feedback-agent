@@ -1,4 +1,6 @@
 crewai
+langchain
+litellm
 langchain-openrouter
 plotly
 pandas
