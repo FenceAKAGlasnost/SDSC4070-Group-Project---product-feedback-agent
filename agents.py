@@ -15,109 +15,165 @@ llm = ChatOpenRouter(
     base_url="https://openrouter.ai/api/v1"
 )
 
-# ==================== 5 AGENTS (now with test modifications) ====================
+# ==================== 5 AGENTS ====================
 
 cleaner = Agent(
-    role="Data Cleaning Specialist (TEST MODE)",
-    goal="Add 'TEST: ' to every cleaned comment and return the list",
-    backstory="You are in test mode. You always add 'TEST: ' at the start of each cleaned comment.",
+    role="Data Cleaning Specialist",
+    goal="Clean and organize raw user comments into usable format",
+    backstory="You are meticulous and remove duplicates, spam, and very short irrelevant comments.",
     llm=llm,
     verbose=True
 )
 
 analyzer = Agent(
-    role="Feedback Analyst (TEST MODE)",
-    goal="Always output a fake theme named 'TEST THEME' with count 999 and sentiment 'positive'",
-    backstory="You are in test mode. You ignore the actual comments and output a single fake theme.",
+    role="Feedback Analyst",
+    goal="Identify sentiment and extract main themes from user comments",
+    backstory="You are excellent at finding patterns in customer feedback. You group comments into clear themes.",
     llm=llm,
     verbose=True
 )
 
 summarizer = Agent(
-    role="Professional Summarizer (TEST MODE)",
-    goal="Always output the exact string: 'TEST: This is a test summary from the summarizer agent.'",
-    backstory="You are in test mode. You ignore the analysis and just output the test sentence.",
+    role="Professional Summarizer",
+    goal="Create balanced and concise summaries of the feedback",
+    backstory="You write in a professional, positive, and constructive tone.",
     llm=llm,
     verbose=True
 )
 
 recommender = Agent(
-    role="Product Improvement Expert (TEST MODE)",
-    goal="Always output a single test recommendation: '1. [HIGH] TEST recommendation from the recommender agent.'",
-    backstory="You are in test mode. You ignore insights and output only the test recommendation.",
+    role="Product Improvement Expert",
+    goal="Turn insights into specific, actionable recommendations for Product v2",
+    backstory="You give practical, realistic, and prioritized suggestions that help improve the product.",
     llm=llm,
     verbose=True
 )
 
 reporter = Agent(
-    role="Report Writer (TEST MODE)",
-    goal="Always output a test report that clearly indicates the multi‑agent pipeline was used.",
-    backstory="You are in test mode. You combine the previous test outputs into a simple test report.",
+    role="Report Writer",
+    goal="Generate a clean, professional final report",
+    backstory="You create well-structured, positive, and easy-to-read reports.",
     llm=llm,
     verbose=True
 )
 
-# ==================== TASKS & CREW (modified to produce test outputs) ====================
+# ==================== TASKS & CREW ====================
 
 def create_crew(user_comments: str):
     task1 = Task(
-        description=f"""You are in test mode. Ignore the actual user comments.
-        Instead, output a bulleted list with exactly one item: "- TEST: Cleaner agent ran successfully."
+        description=f"""Clean these raw user comments and remove noise.
 
-        Comments (ignored): {user_comments}
-        """,
+**Steps to follow:**
+1. Remove exact duplicates (identical text).
+2. Remove comments shorter than 5 words (too vague).
+3. Remove spam: any comment containing links, promotional language, or gibberish.
+4. Keep only meaningful feedback about the product.
+
+**Example input:**
+"Great app!"
+"Great app!" (duplicate)
+"Check out my site: http://..."
+"This is useless, fix the bugs"
+"Wow"
+"Love the new design, but it's a bit slow"
+
+**Example output:**
+- Great app!
+- This is useless, fix the bugs
+- Love the new design, but it's a bit slow
+
+Now process the actual comments:
+
+{user_comments}
+
+Output only the cleaned list, one comment per line, as bullet points (starting with "- ").""",
         agent=cleaner,
-        expected_output="Bulleted list with test marker"
+        expected_output="Bulleted list of cleaned comments"
     )
 
     task2 = Task(
-        description="""You are in test mode. Ignore the cleaned comments from the previous task.
-        Output exactly this structure:
-        **Theme:** TEST THEME
-        - **Count:** 999
-        - **Sentiment:** Positive
-        - **Quotes:** "This is a test quote"
-        """,
+        description="""Analyze the cleaned comments to extract sentiment and themes.
+
+**Follow these steps:**
+1. Read all comments.
+2. Identify recurring themes (e.g., UI/UX, performance, pricing, features).
+3. For each theme, count how many comments mention it.
+4. For each theme, assess sentiment: count positive vs negative mentions.
+5. Pick 1-2 representative quotes per theme.
+
+**Example output format:**
+**Theme:** UI/UX
+- **Count:** 12
+- **Sentiment:** Mostly Negative (8 negative, 4 positive)
+- **Quotes:** "The new layout is confusing", "Love the dark mode!"
+
+**Theme:** Performance
+- **Count:** 5
+- **Sentiment:** Mixed (3 positive, 2 negative)
+- **Quotes:** "App crashes often", "Fast loading times"
+
+Now analyze the cleaned comments from the previous task and produce a similar structured output.
+Use markdown headings and bullet points exactly as shown.""",
         agent=analyzer,
-        expected_output="Fake theme analysis",
+        expected_output="Structured theme analysis with counts, sentiment, and quotes",
         context=[task1]
     )
 
     task3 = Task(
-        description="""You are in test mode. Ignore the analysis.
-        Output exactly: "TEST: This is a test summary from the summarizer agent."
-        """,
+        description="""Write a balanced, professional summary of the feedback.
+
+**Steps:**
+1. Identify the top 3 themes by frequency.
+2. Note the dominant sentiment for each.
+3. Write a short summary (max 200 words) that captures the overall mood and key insights.
+Keep the tone professional, positive, and constructive.
+
+Base your summary on the analysis provided in the previous task.
+Output only the summary as plain text, no additional formatting.""",
         agent=summarizer,
-        expected_output="Test summary sentence",
+        expected_output="A short paragraph (≤200 words) summarizing key insights",
         context=[task2]
     )
 
     task4 = Task(
-        description="""You are in test mode. Ignore the summary.
-        Output exactly: "1. [HIGH] TEST recommendation from the recommender agent."
-        """,
+        description="""Provide 6-8 specific, prioritized, and actionable recommendations for Product v2.
+
+**Think step by step:**
+- Which themes have the highest negative sentiment? Those need urgent fixes.
+- Which themes are frequently mentioned but have mixed sentiment? Those need refinement.
+- What specific, realistic improvements could address these issues?
+
+**Example recommendations:**
+1. [HIGH] Improve onboarding flow – add a tutorial video (based on UI/UX feedback).
+2. [MEDIUM] Optimize image loading – reduce initial page load time (from performance complaints).
+3. [LOW] Add dark mode toggle – requested by several users (feature request).
+
+Now produce 6-8 numbered recommendations, each with a priority label [HIGH/MEDIUM/LOW] and a brief justification linked to the feedback themes.
+Output as a numbered list.""",
         agent=recommender,
-        expected_output="Test recommendation",
+        expected_output="Numbered list of recommendations with priorities and justifications",
         context=[task3]
     )
 
     task5 = Task(
-        description="""You are in test mode. Combine the outputs from previous agents into a simple report.
-        Use this format:
-        # TEST REPORT
-        ## Cleaner Output
-        (copy the output from task1)
-        ## Analyzer Output
-        (copy the output from task2)
-        ## Summarizer Output
-        (copy the output from task3)
-        ## Recommender Output
-        (copy the output from task4)
+        description="""Combine everything into a professional final report in markdown format.
 
-        Output only the report, no extra text.
-        """,
+**Structure the report:**
+# Feedback Analysis Report
+## 1. Executive Summary
+(Summarize the overall feedback in 2-3 sentences)
+## 2. Key Themes
+(Insert the theme analysis from the analyzer)
+## 3. Detailed Summary
+(Insert the summary from the summarizer)
+## 4. Actionable Recommendations
+(Insert the numbered list from the recommender)
+
+Ensure the report is well-formatted with markdown headings, lists, and tables as needed.
+Keep the tone positive and constructive.
+Output only the final report.""",
         agent=reporter,
-        expected_output="Test report",
+        expected_output="Well-formatted markdown report",
         context=[task4]
     )
 
