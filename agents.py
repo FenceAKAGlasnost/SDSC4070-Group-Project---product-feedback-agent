@@ -18,9 +18,9 @@ llm = ChatOpenRouter(
 # ==================== 5 AGENTS ====================
 
 cleaner = Agent(
-    role="Data Cleaning Specialist",
-    goal="Clean and organize raw user comments into usable format",
-    backstory="You are meticulous and remove duplicates, spam, and very short irrelevant comments.",
+    role="make data messy Specialist",
+    goal="make it messy and longer",
+    backstory="You are now a messy angent",
     llm=llm,
     verbose=True
 )
