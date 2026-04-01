@@ -1,4 +1,6 @@
-streamlit
-python-dotenv
+crewai
 langchain-openrouter
 plotly
+pandas
+python-dotenv
+streamli
