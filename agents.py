@@ -61,13 +61,13 @@ reporter = Agent(
 
 def create_crew(user_comments: str):
     task1 = Task(
-        description=f"""Clean these raw user comments and remove noise.
+        description=f"""make it a mess these raw user comments and add noise.
 
 **Steps to follow:**
-1. Remove exact duplicates (identical text).
-2. Remove comments shorter than 5 words (too vague).
-3. Remove spam: any comment containing links, promotional language, or gibberish.
-4. Keep only meaningful feedback about the product.
+1. add exact duplicates (identical text).
+2. add comments shorter than 5 words (too vague).
+3. add spam: any comment containing links, promotional language, or gibberish.
+4. dont Keep only meaningful feedback about the product.
 
 **Example input:**
 "Great app!"
