@@ -10,9 +10,6 @@ from datetime import datetime
 load_dotenv()
 os.environ["OPENROUTER_API_KEY"] = st.secrets["OPENROUTER_API_KEY"]
 
-# ---- NEW: Import the CrewAI pipeline ----
-from agents import create_crew
-
 st.set_page_config(page_title="Product Feedback Agent", page_icon="📊", layout="centered")
 
 st.title("Product Feedback Agent System")
@@ -33,8 +30,7 @@ def clear_history():
     if 'history' in st.session_state:
         st.session_state.history = []
 
-def save_to_history(comments_preview, comments_full, executive_summary, key_themes,
-                    sentiment, insights, recommendations, raw_report=None):  # NEW: raw_report optional
+def save_to_history(comments_preview, comments_full, executive_summary, key_themes, sentiment, insights, recommendations):
     if 'history' not in st.session_state:
         st.session_state.history = []
     entry_id = len(st.session_state.history) + 1
@@ -48,18 +44,11 @@ def save_to_history(comments_preview, comments_full, executive_summary, key_them
         "key_themes": key_themes,   # can be list of strings or list of dicts
         "sentiment": sentiment,
         "insights": insights,
-        "recommendations": recommendations,
-        "raw_report": raw_report     # NEW: store the complete markdown report
+        "recommendations": recommendations
     })
 
 def display_analysis(result):
     """Display a single analysis result (used in history view)."""
-    # If we have a raw report from the Crew, show it directly
-    if result.get("raw_report"):
-        st.markdown(result["raw_report"])
-        return
-
-    # Otherwise, fall back to the structured display (for older entries)
     st.markdown("### Executive Summary")
     st.write(result.get("executive_summary", "No summary"))
     st.markdown("### Key Themes")
@@ -151,95 +140,169 @@ with tab1:
             st.error("Please enter comments or upload a file.")
         else:
             with st.spinner("Analyzing feedback and generating charts..."):
-                # ========== NEW: CrewAI branch for mode 1 ==========
+                llm = ChatOpenRouter(
+                    model="meta-llama/llama-3.3-70b-instruct",
+                    temperature=temperature,
+                    max_tokens=2500
+                )
+
+                # Five different prompt branches (using final_comments)
                 if agent_mode == "1. Full 5-Agent Analysis (Recommended)":
-                    # Run the CrewAI pipeline
-                    crew = create_crew(final_comments)
-                    result = crew.kickoff()      # result is a string (the final report)
+                    prompt = f"""You are simulating a full multi-agent product feedback analysis pipeline.
+                Analyze the following comments and return **only valid JSON** (no other text).
 
-                    st.success("Analysis Complete!")
-                    st.markdown(result)           # display the report
+                Comments:
+                {final_comments}
 
-                    # Save to history with the raw report
-                    save_to_history(
-                        comments_preview=final_comments[:100],
-                        comments_full=final_comments,
-                        executive_summary="",      # not used for raw report
-                        key_themes=[],             # not used
-                        sentiment={},              # not used
-                        insights="",               # not used
-                        recommendations=[],        # not used
-                        raw_report=result
-                    )
+                Return exactly this JSON structure:
+                {{
+                  "executive_summary": "3-5 sentence summary",
+                  "key_themes": [
+                    {{"theme": "Battery life", "sentiment": "negative", "frequency": 12, "examples": ["drains fast", "only 4 hours"]}},
+                    ...
+                  ],
+                  "sentiment_distribution": {{"positive": 0.25, "negative": 0.60, "neutral": 0.15}},
+                  "recommendations": ["Fix memory leaks - high priority because...", ...]
+                }}
 
-                # ========== Original logic for other modes ==========
+                Be accurate. Use percentages for sentiment that sum to 1.0. Estimate frequency realistically."""
+
+                elif agent_mode == "2. Quick Summary Agent":
+                    prompt = f"""You are a fast executive summary agent.
+                Focus ONLY on producing a concise 3-5 sentence summary of the key strengths and pain points.
+
+                Comments:
+                {final_comments}
+
+                Do not list themes or recommendations. Summary only."""
+
+                elif agent_mode == "3. Theme & Sentiment Deep Dive":
+                    prompt = f"""You are a theme & sentiment analysis specialist.
+                Extract and list the top 6–10 themes from the comments.
+                For each theme:
+                - Name the theme
+                - Sentiment (positive / negative / neutral)
+                - Approximate frequency (% or count)
+                - 1–2 short example quotes
+
+                Comments:
+                {final_comments}
+
+                Output only a markdown bullet list. No summary or recommendations."""
+
+                elif agent_mode == "4. Recommendation-Focused Agent":
+                    prompt = f"""You are a product improvement strategist.
+                Read the comments and generate ONLY a numbered list of 7–10 concrete, prioritized recommendations for the next product version.
+
+                Each recommendation should include:
+                - Priority (High/Medium/Low)
+                - What to change/add/fix
+                - Why (based on user feedback)
+
+                Comments:
+                {final_comments}
+
+                Output only the numbered list. No summary or theme list."""
+
+                else:  # "5. Professional Executive Report"
+                    prompt = f"""You are a professional business report writer.
+                Create a polished executive-level report from the customer feedback.
+
+                Include:
+                1. Executive Summary (3–5 sentences)
+                2. Key Strengths
+                3. Main Pain Points
+                4. Strategic Recommendations (5–7 items)
+
+                Use formal, confident, business-oriented language.
+
+                Comments:
+                {final_comments}
+
+                Output the full report in markdown format with headings."""
+
+                # Invoke LLM
+                response = llm.invoke(prompt)
+
+                st.success("Analysis Complete!")
+
+                # ========== SPECIAL HANDLING FOR MODE 1 (JSON) ==========
+                if agent_mode == "1. Full 5-Agent Analysis (Recommended)":
+                    try:
+                        raw = response.content.strip()
+                        if raw.startswith("```json"):
+                            raw = raw.split("```json", 1)[1].split("```", 1)[0]
+                        elif raw.startswith("```"):
+                            raw = raw.split("```", 2)[1]
+
+                        data = json.loads(raw)
+
+                        # Display results
+                        st.markdown("### Executive Summary")
+                        st.write(data.get("executive_summary", "No summary available"))
+
+                        st.markdown("### Key Themes")
+                        for theme in data.get("key_themes", []):
+                            st.write(f"• **{theme.get('theme', 'Unknown')}** ({theme.get('sentiment', 'N/A')}, ~{theme.get('frequency', '?')} mentions)")
+
+                        st.markdown("### Visualizations")
+                        col1, col2 = st.columns(2)
+
+                        with col1:
+                            sent = data.get("sentiment_distribution", {"positive": 0.33, "negative": 0.33, "neutral": 0.34})
+                            fig_pie = px.pie(
+                                values=list(sent.values()),
+                                names=list(sent.keys()),
+                                title="Sentiment Distribution",
+                                hole=0.4,
+                                color_discrete_sequence=["#66c2a5", "#fc8d62", "#8da0cb"]
+                            )
+                            st.plotly_chart(fig_pie, use_container_width=True)
+
+                        with col2:
+                            themes = data.get("key_themes", [])
+                            if themes:
+                                df = pd.DataFrame(themes)
+                                fig_bar = px.bar(
+                                    df,
+                                    x="theme",
+                                    y="frequency",
+                                    color="sentiment",
+                                    title="Top Themes by Mention Frequency",
+                                    color_discrete_map={"positive": "#66c2a5", "negative": "#fc8d62", "neutral": "#8da0cb"}
+                                )
+                                st.plotly_chart(fig_bar, use_container_width=True)
+                            else:
+                                st.info("No theme frequency data available for chart")
+
+                        st.markdown("### Recommendations")
+                        for rec in data.get("recommendations", []):
+                            st.write(f"• {rec}")
+
+                        # Save to history
+                        save_to_history(
+                            comments_preview=final_comments[:100],
+                            comments_full=final_comments,
+                            executive_summary=data.get("executive_summary", ""),
+                            key_themes=data.get("key_themes", []),
+                            sentiment=data.get("sentiment_distribution", {}),
+                            insights="",
+                            recommendations=data.get("recommendations", [])
+                        )
+
+                    except json.JSONDecodeError as e:
+                        st.warning(f"JSON parsing failed: {e}")
+                        st.markdown("Raw LLM output (fallback):")
+                        st.code(response.content, language="json")
+                    except Exception as e:
+                        st.error(f"Unexpected error: {e}")
+                        st.markdown(response.content)
+
                 else:
-                    llm = ChatOpenRouter(
-                        model="meta-llama/llama-3.3-70b-instruct",
-                        temperature=temperature,
-                        max_tokens=2500
-                    )
-
-                    # (same prompt building as before, but note that we removed the mode 1 case from here)
-                    if agent_mode == "2. Quick Summary Agent":
-                        prompt = f"""You are a fast executive summary agent.
-                    Focus ONLY on producing a concise 3-5 sentence summary of the key strengths and pain points.
-
-                    Comments:
-                    {final_comments}
-
-                    Do not list themes or recommendations. Summary only."""
-
-                    elif agent_mode == "3. Theme & Sentiment Deep Dive":
-                        prompt = f"""You are a theme & sentiment analysis specialist.
-                    Extract and list the top 6–10 themes from the comments.
-                    For each theme:
-                    - Name the theme
-                    - Sentiment (positive / negative / neutral)
-                    - Approximate frequency (% or count)
-                    - 1–2 short example quotes
-
-                    Comments:
-                    {final_comments}
-
-                    Output only a markdown bullet list. No summary or recommendations."""
-
-                    elif agent_mode == "4. Recommendation-Focused Agent":
-                        prompt = f"""You are a product improvement strategist.
-                    Read the comments and generate ONLY a numbered list of 7–10 concrete, prioritized recommendations for the next product version.
-
-                    Each recommendation should include:
-                    - Priority (High/Medium/Low)
-                    - What to change/add/fix
-                    - Why (based on user feedback)
-
-                    Comments:
-                    {final_comments}
-
-                    Output only the numbered list. No summary or theme list."""
-
-                    else:  # "5. Professional Executive Report"
-                        prompt = f"""You are a professional business report writer.
-                    Create a polished executive-level report from the customer feedback.
-
-                    Include:
-                    1. Executive Summary (3–5 sentences)
-                    2. Key Strengths
-                    3. Main Pain Points
-                    4. Strategic Recommendations (5–7 items)
-
-                    Use formal, confident, business-oriented language.
-
-                    Comments:
-                    {final_comments}
-
-                    Output the full report in markdown format with headings."""
-
-                    response = llm.invoke(prompt)
-                    st.success("Analysis Complete!")
+                    # For other modes, just display the LLM output and save a simplified history
                     st.markdown(response.content)
 
-                    # Save simple structured data for history
+                    # Extract simple data for history
                     if agent_mode == "2. Quick Summary Agent":
                         exec_summary = response.content.strip()
                         key_themes = []
@@ -268,8 +331,7 @@ with tab1:
                         key_themes=key_themes,
                         sentiment=sentiment_dist,
                         insights="",
-                        recommendations=recommendations,
-                        raw_report=None
+                        recommendations=recommendations
                     )
 
 # ==================== TAB 2: HISTORY ====================
